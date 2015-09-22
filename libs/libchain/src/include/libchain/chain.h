@@ -5,6 +5,24 @@ typedef void (task_func_t)(void);
 
 extern task_func_t * volatile curtask;
 
+/** @brief Function called on every reboot
+ *  @details This function usually initializes hardware, such as GPIO
+ *           direction. The application must define this function.
+ */
+void init();
+
+/** @brief First task to run when the application starts
+ *  @details The application must define this function.
+ *
+ *  TODO: An alternative would be to have a macro that defines
+ *        the curtask symbol and initializes it to the entry task. The
+ *        application would be required to have a definition using that macro.
+ *        An advantage is that the names of the tasks in the application are
+ *        not constrained, and the whole thing is less magical when reading app
+ *        code, but slightly more verbose.
+ */
+void entry_task();
+
 /**
  * @brief Transfer control to the given task
  * @details Finalize the current task and jump to the given task.
