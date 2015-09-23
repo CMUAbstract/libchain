@@ -3,11 +3,24 @@
 /* Variable placement in nonvolatile memory; linker puts this in right place */
 #define __fram __attribute__((section(".fram_vars")))
 
-__fram task_func_t * volatile curtask = entry_task;
+/** @brief Entry task function prototype
+ *  @details We rely on the special name of this symbol to initialize the
+ *           current task pointer. The entry function is defined in the user
+ *           application through a macro provided by our header.
+ */
+void _entry_task();
+
+/** @brief Init function prototype
+ *  @details Same notes apply as for entry task function.
+ */
+void _init();
+
+/** @brief Pointer to the most recently started but not finished task */
+__fram task_func_t * volatile curtask = _entry_task;
 
 /** @brief Entry point upon reboot */
 int main() {
-    init();
+    _init();
 
     // Resume execution at the last task that started but did not finish
 

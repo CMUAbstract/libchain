@@ -23,6 +23,24 @@ void init();
  */
 void entry_task();
 
+/** @brief Declare the first task of the application
+ *  @details This macro defines a function with a special name that is
+ *           used to initialize the current task pointer.
+ *
+ *           This does incur the penalty of an extra task transition, but it
+ *           happens only once in application lifetime.
+ *
+ *           The alternatives are to force the user to define functions
+ *           with a special name or to define a task pointer symbol outside
+ *           of the library.
+ */
+#define ENTRY_TASK(task) void _entry_task() { transition_to(task); }
+
+/** @brief Declare the function to be called on each boot
+ *  @details The same notes apply as for entry task.
+ */
+#define INIT_FUNC(func) void _init() { func(); }
+
 /**
  * @brief Transfer control to the given task
  * @details Finalize the current task and jump to the given task.
