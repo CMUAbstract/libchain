@@ -41,16 +41,26 @@ static inline void transition_to(task_func_t *next_task)
     // set the current task pointer in the function *prologue* --
     // would need compiler support for this.
 
-    // TODO: re-use the top-of-stack address used in entry point
-    //       probably need to write a custom entry point in asm, and
+    // TODO: re-use the top-of-stack address used in entry point, instead
+    //       of hardcoding the address.
+    //
+    //       Probably need to write a custom entry point in asm, and
     //       use it instead of the C runtime one.
-    __asm__ (
+    __asm__ volatile ( // volatile because output operands unused by C
         "mov #0x2400, r1\n"
-        "mov %0, %1\n"
-        "br %0\n"
-        : : "r" (next_task),
-            "r" (curtask)
+        "mov %[nt], %[ct]\n"
+        "br %[nt]\n"
+        : [ct] "=m" (curtask)
+        : [nt] "r" (next_task)
     );
+
+    // Alternative:
+    // task-function prologue:
+    //     mov pc, curtask 
+    //     mov #0x2400, sp
+    //
+    // transition_to(next_task):
+    //     br next_task
 }
 
 #endif // CHAIN_H
