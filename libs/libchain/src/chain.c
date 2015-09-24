@@ -1,8 +1,5 @@
 #include <chain.h>
 
-/* Variable placement in nonvolatile memory; linker puts this in right place */
-#define __fram __attribute__((section(".fram_vars")))
-
 /** @brief Entry task function prototype
  *  @details We rely on the special name of this symbol to initialize the
  *           current task pointer. The entry function is defined in the user
@@ -17,6 +14,9 @@ void _init();
 
 /** @brief Pointer to the most recently started but not finished task */
 __fram task_func_t * volatile curtask = _entry_task;
+
+/** @brief Logical time, ticks at task boundaries */
+__fram chain_time_t volatile curtime = 0;
 
 /** @brief Entry point upon reboot */
 int main() {
