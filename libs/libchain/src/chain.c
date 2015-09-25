@@ -1,5 +1,7 @@
 #include <chain.h>
 
+#include <stdarg.h>
+
 /** @brief Entry task function prototype
  *  @details We rely on the special name of this symbol to initialize the
  *           current task pointer. The entry function is defined in the user
@@ -20,6 +22,30 @@ __fram chain_time_t volatile curtime = 0;
 
 // for internal instrumentation purposes
 __fram volatile unsigned _numBoots = 0;
+
+void *chan_in(int count, ...)
+{
+    va_list ap;
+    unsigned i;
+    unsigned latest_update;
+    chan_field_meta_t *field;
+    void *latest_field;
+
+    va_start(ap, count);
+
+    latest_update = 0;
+    latest_field = NULL;
+    for (i = 0; i < count; ++i) {
+        field = va_arg(ap, __typeof__(field));
+
+        if (field->timestamp > latest_update) {
+            latest_update = field->timestamp;
+            latest_field = field;
+        }
+    }
+
+    return latest_field;
+}
 
 /** @brief Entry point upon reboot */
 int main() {

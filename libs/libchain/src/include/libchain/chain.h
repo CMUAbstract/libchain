@@ -1,17 +1,27 @@
 #ifndef CHAIN_H
 #define CHAIN_H
 
+#include <stddef.h>
+
 /* Variable placement in nonvolatile memory; linker puts this in right place */
 #define __fram __attribute__((section(".fram_vars")))
 
 typedef void (task_func_t)(void);
 typedef unsigned chain_time_t;
 
+typedef struct {
+    chain_time_t timestamp;
+} chan_field_meta_t;
+
+/** @brief Declare a value transmittable over a channel
+ *  @details Metadata field must be the first, so that these
+ *           fields can be upcast to a generic type.
+ */
 #define CHAN_FIELD(type, name) \
     struct { \
+        chan_field_meta_t meta; \
         type value; \
-        chain_time_t timestamp; \
-    } name;
+    } name
 
 extern task_func_t * volatile curtask;
 extern chain_time_t volatile curtime;
@@ -106,6 +116,8 @@ static inline void transition_to(task_func_t *next_task)
     //     br next_task
 }
 
+void *chan_in(int count, ...);
+
 #define FIELD_NAME(src, dest, field) _ch_ ## src ## _ ## dest.field
 
 #define CHANNEL(src, dest, type) __fram type _ch_ ## src ## _ ## dest
@@ -116,52 +128,44 @@ static inline void transition_to(task_func_t *next_task)
  *
  *  TODO: eliminate dest field through compiler support
  */
-#define CHAN_IN1(var, field, dest, src0) \
-    var = FIELD_NAME(src0, dest, field).value
+#define CHAN_IN1(field, dest, src0) \
+    (&FIELD_NAME(src0, dest, field).value)
 
-#define CHAN_IN2(var, field, dest, src0, src1) \
-    var = (FIELD_NAME(src0, dest, field).timestamp > FIELD_NAME(src1, dest, field).timestamp) ? \
-            FIELD_NAME(src0, dest, field).value : FIELD_NAME(src1, dest, field).value
+#define CHAN_IN2(field, dest, src0, src1) \
+    CHAN_IN(field, src0, dest, 2, \
+            FIELD_NAME(src0, dest, field), \
+            FIELD_NAME(src1, dest, field))
 
-#define CHAN_IN3(var, field, dest, src0, src1, src2) \
-    do { \
-        if (FIELD_NAME(src0, dest, field).timestamp >= FIELD_NAME(src1, dest, field).timestamp && \
-                FIELD_NAME(src0, dest, field).timestamp >= FIELD_NAME(src2, dest, field).timestamp) \
-            var = FIELD_NAME(src0, dest, field).value; \
-        else if (FIELD_NAME(src1, dest, field).timestamp >= FIELD_NAME(src0, dest, field).timestamp && \
-                FIELD_NAME(src1, dest, field).timestamp >= FIELD_NAME(src2, dest, field).timestamp) \
-            var = FIELD_NAME(src1, dest, field).value; \
-        else \
-            var = FIELD_NAME(src2, dest, field).value; \
-    } while(0)
+#define CHAN_IN3(field, dest, src0, src1, src2) \
+    CHAN_IN(field, src0, dest, 3, \
+            FIELD_NAME(src0, dest, field), \
+            FIELD_NAME(src1, dest, field), \
+            FIELD_NAME(src2, dest, field))
 
-/* A sketch for an alternative approach: requires
- *    (1) an indirection table
- *    (2) referring to tasks by indices
- **/
-#if 0
-#define CHAN_IN(var, field, dest, src) \
-    { \
-        task_func_t *srcs = { __VA_ARGS__ }; \
-        _chain_time_t t = 0; \
-        unsigned latest_i = 0, i; \
-        for (i = 0; i < sizeof(srcs) / sizeof(srcs[0]); ++i) \
-            if (chan_table(srcs[0], dest).field.timestamp > t) { \
-                t = FIELD_NAME(src, dest, field).timestamp; \
-                latest_i = i;  \
-            } \
-        var = srs[latest[i]]
-    }
-#endif
+#define CHAN_IN4(field, dest, src0, src1, src2, src3) \
+    CHAN_IN(field, src0, dest, 4, \
+            FIELD_NAME(src0, dest, field), \
+            FIELD_NAME(src1, dest, field), \
+            FIELD_NAME(src2, dest, field), \
+            FIELD_NAME(src3, dest, field))
+
+/** @brief Internal macro that wraps a call to internal chan_in function
+ *  @param src      any of the sources, used only for type info
+ */
+#define CHAN_IN(field, src, dest, count, ...) \
+    ((__typeof__(FIELD_NAME(src, dest, field).value)*) \
+     ((unsigned char *)chan_in(count, __VA_ARGS__) + \
+      offsetof(__typeof__(FIELD_NAME(src, dest, field)), value)))
 
 /** @brief Write a value into a channel
- *  @details
+ *  @details NOTE: must take value by value (not by ref, which would be
+ *           consistent with CHAN_IN), because must support constants.
  *  TODO: eliminate dest field through compiler support
  */
 #define CHAN_OUT(src, dest, field, val) \
     do { \
         FIELD_NAME(src, dest, field).value = val; \
-        FIELD_NAME(src, dest, field).timestamp = curtime; \
+        FIELD_NAME(src, dest, field).meta.timestamp = curtime; \
     } while(0)
 
 #endif // CHAIN_H
