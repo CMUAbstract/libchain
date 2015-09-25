@@ -18,9 +18,14 @@ __fram task_func_t * volatile curtask = _entry_task;
 /** @brief Logical time, ticks at task boundaries */
 __fram chain_time_t volatile curtime = 0;
 
+// for internal instrumentation purposes
+__fram volatile unsigned _numBoots = 0;
+
 /** @brief Entry point upon reboot */
 int main() {
     _init();
+
+    _numBoots++;
 
     // Resume execution at the last task that started but did not finish
 

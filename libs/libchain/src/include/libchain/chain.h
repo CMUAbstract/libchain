@@ -7,10 +7,11 @@
 typedef void (task_func_t)(void);
 typedef unsigned chain_time_t;
 
-typedef struct {
-    unsigned value;
-    chain_time_t timestamp;
-} chan_field_unsigned_t;
+#define CHAN_FIELD(type, name) \
+    struct { \
+        type value; \
+        chain_time_t timestamp; \
+    } name;
 
 extern task_func_t * volatile curtask;
 extern chain_time_t volatile curtime;
@@ -112,6 +113,8 @@ static inline void transition_to(task_func_t *next_task)
 /** @brief Read a value from one of the given channels into a variable
  *  @details This family of macros assigns the most recently-modified value
  *           of the requested field to the variable.
+ *
+ *  TODO: eliminate dest field through compiler support
  */
 #define CHAN_IN1(var, field, dest, src0) \
     var = FIELD_NAME(src0, dest, field).value
@@ -151,6 +154,10 @@ static inline void transition_to(task_func_t *next_task)
     }
 #endif
 
+/** @brief Write a value into a channel
+ *  @details
+ *  TODO: eliminate dest field through compiler support
+ */
 #define CHAN_OUT(src, dest, field, val) \
     do { \
         FIELD_NAME(src, dest, field).value = val; \
