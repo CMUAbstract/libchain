@@ -23,8 +23,19 @@ typedef struct {
         type value; \
     } name
 
-extern task_func_t * volatile curtask;
-extern chain_time_t volatile curtime;
+/** @brief Execution context */
+typedef struct _context_t {
+    /** @brief Pointer to the most recently started but not finished task */
+    task_func_t *task;
+    /** @brief Logical time, ticks at task boundaries */
+    chain_time_t time;
+
+    struct _context_t *next_ctx;
+
+    // TODO: self-channel pointer
+} context_t;
+
+extern context_t * volatile curctx;
 
 /** @brief Function called on every reboot
  *  @details This function usually initializes hardware, such as GPIO
@@ -62,60 +73,8 @@ void entry_task();
  */
 #define INIT_FUNC(func) void _init() { func(); }
 
-/**
- * @brief Transfer control to the given task
- * @details Finalize the current task and jump to the given task.
- *          This function does not return.
- */
-static inline void transition_to(task_func_t *next_task)
-{
-    // reset stack pointer
-    // update current task pointer
-    // tick logical time
-    // jump to next task
 
-    // NOTE: the order of these does not seem to matter, a reboot
-    // at any point in this sequence seems to be harmless.
-    //
-    // NOTE: It might be a bit cleaner to reset the stack and
-    // set the current task pointer in the function *prologue* --
-    // would need compiler support for this.
-    //
-    // NOTE: It is harmless to increment the time even if we fail before
-    // transitioning to the next task. The reverse, i.e. failure to increment
-    // time while having transitioned to the task, would break the
-    // semantics of CHAN_IN (aka. sync), which should get the most recently
-    // updated value.
-
-    // TODO: handle overflow of timestamp. Some very raw ideas:
-    //          * limit the age of values
-    //          * a maintainance task that fixes up stored timestamps
-    //          * extra bit to mark timestamps as pre/post overflow
-
-    // TODO: re-use the top-of-stack address used in entry point, instead
-    //       of hardcoding the address.
-    //
-    //       Probably need to write a custom entry point in asm, and
-    //       use it instead of the C runtime one.
-    __asm__ volatile ( // volatile because output operands unused by C
-        "mov #0x2400, r1\n"
-        "inc %[ctime]\n"
-        "mov %[ntask], %[ctask]\n"
-        "br %[ntask]\n"
-        : [ctask] "=m" (curtask),
-          [ctime] "=m" (curtime)
-        : [ntask] "r" (next_task)
-    );
-
-    // Alternative:
-    // task-function prologue:
-    //     mov pc, curtask 
-    //     mov #0x2400, sp
-    //
-    // transition_to(next_task):
-    //     br next_task
-}
-
+void transition_to(task_func_t *next_task);
 void *chan_in(int count, ...);
 
 #define FIELD_NAME(src, dest, field) _ch_ ## src ## _ ## dest.field
@@ -165,7 +124,7 @@ void *chan_in(int count, ...);
 #define CHAN_OUT(src, dest, field, val) \
     do { \
         FIELD_NAME(src, dest, field).value = val; \
-        FIELD_NAME(src, dest, field).meta.timestamp = curtime; \
+        FIELD_NAME(src, dest, field).meta.timestamp = curctx->time; \
     } while(0)
 
 #endif // CHAIN_H
