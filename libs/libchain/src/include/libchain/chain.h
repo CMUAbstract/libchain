@@ -92,21 +92,21 @@ void *chan_in(int count, ...);
 
 #define CHAN_IN2(field, dest, src0, src1) \
     CHAN_IN(field, src0, dest, 2, \
-            FIELD_NAME(src0, dest, field), \
-            FIELD_NAME(src1, dest, field))
+            &FIELD_NAME(src0, dest, field), \
+            &FIELD_NAME(src1, dest, field))
 
 #define CHAN_IN3(field, dest, src0, src1, src2) \
     CHAN_IN(field, src0, dest, 3, \
-            FIELD_NAME(src0, dest, field), \
-            FIELD_NAME(src1, dest, field), \
-            FIELD_NAME(src2, dest, field))
+            &FIELD_NAME(src0, dest, field), \
+            &FIELD_NAME(src1, dest, field), \
+            &FIELD_NAME(src2, dest, field))
 
 #define CHAN_IN4(field, dest, src0, src1, src2, src3) \
     CHAN_IN(field, src0, dest, 4, \
-            FIELD_NAME(src0, dest, field), \
-            FIELD_NAME(src1, dest, field), \
-            FIELD_NAME(src2, dest, field), \
-            FIELD_NAME(src3, dest, field))
+            &FIELD_NAME(src0, dest, field), \
+            &FIELD_NAME(src1, dest, field), \
+            &FIELD_NAME(src2, dest, field), \
+            &FIELD_NAME(src3, dest, field))
 
 /** @brief Internal macro that wraps a call to internal chan_in function
  *  @param src      any of the sources, used only for type info
