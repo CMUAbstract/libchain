@@ -29,10 +29,11 @@ typedef struct _context_t {
     task_func_t *task;
     /** @brief Logical time, ticks at task boundaries */
     chain_time_t time;
+    /** @brief Index that selects the current buffer for the self-channel */
+    unsigned self_chan_idx;
 
+    // TODO: move this to top, just feels cleaner
     struct _context_t *next_ctx;
-
-    // TODO: self-channel pointer
 } context_t;
 
 extern context_t * volatile curctx;
@@ -77,54 +78,42 @@ void entry_task();
 void transition_to(task_func_t *next_task);
 void *chan_in(int count, ...);
 
-#define FIELD_NAME(src, dest, field) _ch_ ## src ## _ ## dest.field
-
 #define CHANNEL(src, dest, type) __fram type _ch_ ## src ## _ ## dest
+#define SELF_CHANNEL(task, type) __fram type _ch_ ## task ## [2]
 
-/** @brief Read a value from one of the given channels into a variable
- *  @details This family of macros assigns the most recently-modified value
- *           of the requested field to the variable.
- *
- *  TODO: eliminate dest field through compiler support
+#define CH(src, dest) (&_ch_ ## src ## _ ## dest)
+#define SELF_CH(task) (&_ch_ ## task ## [curctx->self_chan_idx])
+
+/** @brief Internal macro for counting channel arguments to a variadic macro */
+#define NUM_CHANS(...) (sizeof((void *[]){__VA_ARGS__})/sizeof(void *))
+
+/** @brief Read the named field from the given channels
+ *  @details This macro retuns a pointer to value of the requested field.
  */
-#define CHAN_IN1(field, dest, src0) \
-    (&FIELD_NAME(src0, dest, field).value)
+#define CHAN_IN1(field, chan0) (&(chan0->field.value))
 
-#define CHAN_IN2(field, dest, src0, src1) \
-    CHAN_IN(field, src0, dest, 2, \
-            &FIELD_NAME(src0, dest, field), \
-            &FIELD_NAME(src1, dest, field))
-
-#define CHAN_IN3(field, dest, src0, src1, src2) \
-    CHAN_IN(field, src0, dest, 3, \
-            &FIELD_NAME(src0, dest, field), \
-            &FIELD_NAME(src1, dest, field), \
-            &FIELD_NAME(src2, dest, field))
-
-#define CHAN_IN4(field, dest, src0, src1, src2, src3) \
-    CHAN_IN(field, src0, dest, 4, \
-            &FIELD_NAME(src0, dest, field), \
-            &FIELD_NAME(src1, dest, field), \
-            &FIELD_NAME(src2, dest, field), \
-            &FIELD_NAME(src3, dest, field))
-
-/** @brief Internal macro that wraps a call to internal chan_in function
- *  @param src      any of the sources, used only for type info
+/** @brief Read the most recently modified value from one of the given channels
+ *  @details This macro retuns a pointer to the most recently modified value
+ *           of the requested field.
  */
-#define CHAN_IN(field, src, dest, count, ...) \
-    ((__typeof__(FIELD_NAME(src, dest, field).value)*) \
-     ((unsigned char *)chan_in(count, __VA_ARGS__) + \
-      offsetof(__typeof__(FIELD_NAME(src, dest, field)), value)))
+#define CHAN_IN(field, chan0, ...) \
+    ((__typeof__(chan0->field.value)*) \
+      ((unsigned char *)chan_in(1 + NUM_CHANS(__VA_ARGS__), chan0, __VA_ARGS__) + \
+      offsetof(__typeof__(chan0->field), value)))
 
 /** @brief Write a value into a channel
  *  @details NOTE: must take value by value (not by ref, which would be
  *           consistent with CHAN_IN), because must support constants.
+ *
  *  TODO: eliminate dest field through compiler support
+ *  TODO: multicast: the chan will become a list: var arg
+ *  TODO: does the compiler optimize what is effectively
+ *        (&chan_buf)->value into chan_buf.value, for non-self channels?
  */
-#define CHAN_OUT(src, dest, field, val) \
+#define CHAN_OUT(field, val, chan) \
     do { \
-        FIELD_NAME(src, dest, field).value = val; \
-        FIELD_NAME(src, dest, field).meta.timestamp = curctx->time; \
+        chan->field.value = val; \
+        chan->field.meta.timestamp = curctx->time; \
     } while(0)
 
 #endif // CHAIN_H
