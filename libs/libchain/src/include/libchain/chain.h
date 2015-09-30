@@ -79,10 +79,10 @@ void transition_to(task_func_t *next_task);
 void *chan_in(int count, ...);
 
 #define CHANNEL(src, dest, type) __fram type _ch_ ## src ## _ ## dest
-#define SELF_CHANNEL(task, type) __fram type _ch_ ## task ## [2]
+#define SELF_CHANNEL(task, type) __fram type _ch_ ## task[2]
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
-#define SELF_CH(task) (&_ch_ ## task ## [curctx->self_chan_idx])
+#define SELF_CH(task) (&_ch_ ## task[curctx->self_chan_idx])
 
 /** @brief Internal macro for counting channel arguments to a variadic macro */
 #define NUM_CHANS(...) (sizeof((void *[]){__VA_ARGS__})/sizeof(void *))
