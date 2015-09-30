@@ -8,6 +8,7 @@
 
 typedef void (task_func_t)(void);
 typedef unsigned chain_time_t;
+typedef unsigned task_mask_t;
 
 typedef struct {
     chain_time_t timestamp;
@@ -27,16 +28,37 @@ typedef struct {
 typedef struct _context_t {
     /** @brief Pointer to the most recently started but not finished task */
     task_func_t *task;
+
+    /** @brief The bit in a bitmask that identifies the current task */
+    task_mask_t task_mask;
+
     /** @brief Logical time, ticks at task boundaries */
     chain_time_t time;
-    /** @brief Index that selects the current buffer for the self-channel */
-    unsigned self_chan_idx;
+
+    /** @brief Bitmask that maps task index to its self-channel buffer index */
+    task_mask_t self_chan_idx;
 
     // TODO: move this to top, just feels cleaner
     struct _context_t *next_ctx;
 } context_t;
 
 extern context_t * volatile curctx;
+
+/** @brief Internal macro for constructing name of task mask symbol */
+#define TASK_MASK_NAME(func) _task_ ## func ## _mask
+
+/** @brief Declare a task
+ *
+ *  @param idx      Global task index, zero-based
+ *  @param func     Pointer to task function
+ *
+ *   TODO: These do not need to be stored in memory, could be resolved
+ *         into literal values and encoded directly in the code instructions.
+ *         But, it's not obvious how to implement that with macros (would
+ *         need "define inside a define"), so for now create symbols.
+ *         The compiler should actually optimize these away.
+ */
+#define TASK(idx, func) const task_mask_t TASK_MASK_NAME(func) = (1 << idx);
 
 /** @brief Function called on every reboot
  *  @details This function usually initializes hardware, such as GPIO
@@ -67,22 +89,24 @@ void entry_task();
  *           with a special name or to define a task pointer symbol outside
  *           of the library.
  */
-#define ENTRY_TASK(task) void _entry_task() { transition_to(task); }
+#define ENTRY_TASK(task) \
+    void _entry_task() { transition_to(task, TASK_MASK_NAME(task)); }
 
 /** @brief Declare the function to be called on each boot
  *  @details The same notes apply as for entry task.
  */
 #define INIT_FUNC(func) void _init() { func(); }
 
-
-void transition_to(task_func_t *next_task);
+void transition_to(task_func_t *next_task, task_mask_t bit_mask);
 void *chan_in(int count, ...);
 
 #define CHANNEL(src, dest, type) __fram type _ch_ ## src ## _ ## dest
 #define SELF_CHANNEL(task, type) __fram type _ch_ ## task[2]
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
-#define SELF_CH(task) (&_ch_ ## task[curctx->self_chan_idx])
+// TODO: compare right-shift vs. branch implementation for this:
+#define SELF_IN_CH(task)  (&_ch_ ## task[curctx->self_chan_idx & curctx->task_mask ? 0 : 1])
+#define SELF_OUT_CH(task) (&_ch_ ## task[curctx->self_chan_idx & curctx->task_mask ? 1 : 0])
 
 /** @brief Internal macro for counting channel arguments to a variadic macro */
 #define NUM_CHANS(...) (sizeof((void *[]){__VA_ARGS__})/sizeof(void *))
@@ -115,5 +139,10 @@ void *chan_in(int count, ...);
         chan->field.value = val; \
         chan->field.meta.timestamp = curctx->time; \
     } while(0)
+
+/** @brief Transfer control to the given task
+ *  @param task     Name of the task function
+ *  */
+#define TRANSITION_TO(task) transition_to(task, TASK_MASK_NAME(task))
 
 #endif // CHAIN_H
