@@ -15,6 +15,8 @@ typedef struct {
 } chan_field_meta_t;
 
 /** @brief Declare a value transmittable over a channel
+ *  @param  type    Type of the field value
+ *  @param  name    Name of the field, include [] suffix to declare an array
  *  @details Metadata field must be the first, so that these
  *           fields can be upcast to a generic type.
  */
@@ -58,7 +60,9 @@ extern context_t * volatile curctx;
  *         need "define inside a define"), so for now create symbols.
  *         The compiler should actually optimize these away.
  */
-#define TASK(idx, func) const task_mask_t TASK_MASK_NAME(func) = (1 << idx);
+#define TASK(idx, func) \
+    const task_mask_t TASK_MASK_NAME(func) = (1 << idx); \
+    void func(); \
 
 /** @brief Function called on every reboot
  *  @details This function usually initializes hardware, such as GPIO
