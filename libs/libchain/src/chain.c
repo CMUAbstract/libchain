@@ -87,7 +87,7 @@ void transition_to(task_func_t *next_task, task_mask_t next_task_mask)
     next_ctx->time = curctx->time + 1;
     next_ctx->self_chan_idx = curctx->self_chan_idx ^ curctx->task_mask;
 
-    curctx->next_ctx = curctx;
+    next_ctx->next_ctx = curctx;
     curctx = next_ctx;
 
     __asm__ volatile ( // volatile because output operands unused by C
