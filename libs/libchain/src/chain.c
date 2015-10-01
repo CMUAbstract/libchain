@@ -112,13 +112,18 @@ void *chan_in(int count, ...)
     unsigned i;
     unsigned latest_update;
     chan_field_meta_t *field;
-    void *latest_field;
+    chan_field_meta_t *latest_field;
 
     va_start(ap, count);
 
-    latest_update = 0;
-    latest_field = NULL;
-    for (i = 0; i < count; ++i) {
+    // TODO: if timestamps are equal, return the first in the list
+    //       but, is this case even possible? how can two different
+    //       sources (i.e. different tasks) write to this destination
+    //       at the same logical time? Pretty sure, this is impossible.
+    //       So, implement asserts/aborts and abort in this case.
+    latest_field = va_arg(ap, __typeof__(field));
+    latest_update = latest_field->timestamp;
+    for (i = 1; i < count; ++i) {
         field = va_arg(ap, __typeof__(field));
 
         if (field->timestamp > latest_update) {
@@ -127,7 +132,7 @@ void *chan_in(int count, ...)
         }
     }
 
-    return latest_field;
+    return (void *)latest_field;
 }
 
 /** @brief Entry point upon reboot */
