@@ -109,8 +109,8 @@ void *chan_in(int count, ...);
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
 // TODO: compare right-shift vs. branch implementation for this:
-#define SELF_IN_CH(task)  (&_ch_ ## task[curctx->self_chan_idx & curctx->task_mask ? 0 : 1])
-#define SELF_OUT_CH(task) (&_ch_ ## task[curctx->self_chan_idx & curctx->task_mask ? 1 : 0])
+#define SELF_IN_CH(task)  (&_ch_ ## task[(curctx->self_chan_idx & curctx->task_mask) ? 0 : 1])
+#define SELF_OUT_CH(task) (&_ch_ ## task[(curctx->self_chan_idx & curctx->task_mask) ? 1 : 0])
 
 /** @brief Internal macro for counting channel arguments to a variadic macro */
 #define NUM_CHANS(...) (sizeof((void *[]){__VA_ARGS__})/sizeof(void *))
