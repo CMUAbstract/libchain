@@ -123,7 +123,9 @@ void *chan_in(int count, ...);
 #define SELF_OUT_CH(task) (&_ch_ ## task[(curctx->self_chan_idx & curctx->task_mask) ? 1 : 0])
 /** @brief Multicast channel reference
  *  @details Require the source for consistency with other channel types.
- *           Require the list of destinations for code legibility in the source task.
+ *           In IN, require the one destination that's doing the read for consistency.
+ *           In OUT, require the list of destinations for consistency and for
+ *           code legibility.
  *           Require name only because of implementation constraints.
  *
  *           NOTE: The name is not pure syntactic sugar, because currently
@@ -141,7 +143,7 @@ void *chan_in(int count, ...);
  *           channel (task-to-task/self/multicast) be transparent to the
  *           application. type nature be transparent , or we use a name.
  */
-#define MC_IN_CH(name, src)               (&_ch_mc_ ## src ## name)
+#define MC_IN_CH(name, src, dest)         (&_ch_mc_ ## src ## name)
 #define MC_OUT_CH(name, src, dest, ...)   (&_ch_mc_ ## src ## name)
 
 /** @brief Internal macro for counting channel arguments to a variadic macro */
