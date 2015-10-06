@@ -106,7 +106,16 @@ void *chan_in(int count, ...);
 
 #define CHANNEL(src, dest, type) __fram type _ch_ ## src ## _ ## dest
 #define SELF_CHANNEL(task, type) __fram type _ch_ ## task[2]
-#define MULTICAST_CHANNEL(name, type) __fram type _ch_mc_ ## name
+/** @brief Declare a multicast channel: one source many destinations
+ *  @params name    short name used to refer to the channels from source and destinations
+ *  @details Conceptually, the channel is between the specified source and
+ *           destinations only. The arbitrary name exists only to simplify referring
+ *           to the channel: to avoid having to list all sources and destinations
+ *           every time. However, access control is not currently enforced.
+ *           Declarations of sources and destinations is necessary for perform
+ *           compile-time checks planned for the future.
+ */
+#define MULTICAST_CHANNEL(type, name, src, dest, ...) __fram type _ch_mc_ ## name
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
 // TODO: compare right-shift vs. branch implementation for this:
