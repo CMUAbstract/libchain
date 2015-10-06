@@ -106,11 +106,13 @@ void *chan_in(int count, ...);
 
 #define CHANNEL(src, dest, type) __fram type _ch_ ## src ## _ ## dest
 #define SELF_CHANNEL(task, type) __fram type _ch_ ## task[2]
+#define MULTICAST_CHANNEL(name, type) __fram type _ch_mc_ ## name
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
 // TODO: compare right-shift vs. branch implementation for this:
 #define SELF_IN_CH(task)  (&_ch_ ## task[(curctx->self_chan_idx & curctx->task_mask) ? 0 : 1])
 #define SELF_OUT_CH(task) (&_ch_ ## task[(curctx->self_chan_idx & curctx->task_mask) ? 1 : 0])
+#define MC_CH(name)   (&_ch_mc_ ## name)
 
 /** @brief Internal macro for counting channel arguments to a variadic macro */
 #define NUM_CHANS(...) (sizeof((void *[]){__VA_ARGS__})/sizeof(void *))
