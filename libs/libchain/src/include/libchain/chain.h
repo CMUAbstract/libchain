@@ -115,13 +115,34 @@ void *chan_in(int count, ...);
  *           Declarations of sources and destinations is necessary for perform
  *           compile-time checks planned for the future.
  */
-#define MULTICAST_CHANNEL(type, name, src, dest, ...) __fram type _ch_mc_ ## name
+#define MULTICAST_CHANNEL(type, name, src, dest, ...) __fram type _ch_mc_ ## src ## name
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
 // TODO: compare right-shift vs. branch implementation for this:
 #define SELF_IN_CH(task)  (&_ch_ ## task[(curctx->self_chan_idx & curctx->task_mask) ? 0 : 1])
 #define SELF_OUT_CH(task) (&_ch_ ## task[(curctx->self_chan_idx & curctx->task_mask) ? 1 : 0])
-#define MC_CH(name)   (&_ch_mc_ ## name)
+/** @brief Multicast channel reference
+ *  @details Require the source for consistency with other channel types.
+ *           Require the list of destinations for code legibility in the source task.
+ *           Require name only because of implementation constraints.
+ *
+ *           NOTE: The name is not pure syntactic sugar, because currently
+ *           refering to the multicast channel from the destination by source
+ *           alone is not sufficient: there may be more than one channels that
+ *           have overlapping destination sets. TODO: disallow this overlap?
+ *           The curent implementation resolves this ambiguity using the name.
+ *
+ *           A separate and more immediate reason for the name is purely
+ *           implementation: if if we disallow the overlap ambiguity, this
+ *           macro needs to resolve among all the channels from the source
+ *           (incl. non-overlapping) -- either we use a name, or we force the
+ *           each destination to specify the complete destination list. The
+ *           latter is not good since eventually we want the type of the
+ *           channel (task-to-task/self/multicast) be transparent to the
+ *           application. type nature be transparent , or we use a name.
+ */
+#define MC_IN_CH(name, src)               (&_ch_mc_ ## src ## name)
+#define MC_OUT_CH(name, src, dest, ...)   (&_ch_mc_ ## src ## name)
 
 /** @brief Internal macro for counting channel arguments to a variadic macro */
 #define NUM_CHANS(...) (sizeof((void *[]){__VA_ARGS__})/sizeof(void *))
