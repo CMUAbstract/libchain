@@ -3,11 +3,11 @@ EXEC = libchain.a
 OBJECTS = \
 	chain.o \
 
-include ../../../Makefile.common.gcc
+include $(MAKER_ROOT)/Makefile.gcc
+
+SRC_ROOT = ../../src
 
 CFLAGS += \
-	-I $(SRC_DIR)/include/libchain \
+	-I $(SRC_ROOT)/include/libchain \
 
-VPATH = $(SRC_DIR)
-
-
+VPATH = $(SRC_ROOT)
