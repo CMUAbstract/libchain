@@ -13,7 +13,7 @@
 /* Variable placement in nonvolatile memory; linker puts this in right place */
 #define __fram __attribute__((section(".fram_vars")))
 
-#define CHAN_NAME_SIZE 16
+#define CHAN_NAME_SIZE 32
 
 typedef void (task_func_t)(void);
 typedef unsigned chain_time_t;
