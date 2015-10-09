@@ -146,7 +146,7 @@ void *chan_in(const char *field_name, int count, ...);
  *           compile-time checks planned for the future.
  */
 #define MULTICAST_CHANNEL(type, name, src, dest, ...) \
-    __fram CH_TYPE(src, name, type) _ch_mc_ ## src ## name = \
+    __fram CH_TYPE(src, name, type) _ch_mc_ ## src ## _ ## name = \
         { { #src, "mc:" #name } }
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
@@ -175,8 +175,8 @@ void *chan_in(const char *field_name, int count, ...);
  *           channel (task-to-task/self/multicast) be transparent to the
  *           application. type nature be transparent , or we use a name.
  */
-#define MC_IN_CH(name, src, dest)         (&_ch_mc_ ## src ## name)
-#define MC_OUT_CH(name, src, dest, ...)   (&_ch_mc_ ## src ## name)
+#define MC_IN_CH(name, src, dest)         (&_ch_mc_ ## src ## _ ## name)
+#define MC_OUT_CH(name, src, dest, ...)   (&_ch_mc_ ## src ## _ ## name)
 
 /** @brief Internal macro for counting channel arguments to a variadic macro */
 #define NUM_CHANS(...) (sizeof((void *[]){__VA_ARGS__})/sizeof(void *))
