@@ -3,14 +3,28 @@
 
 #include <stddef.h>
 
+#ifndef LIBCHAIN_ENABLE_DIAGNOSTICS
+#define LIBCHAIN_PRINTF(...)
+#else
+#include <stdio.h>
+#define LIBCHAIN_PRINTF printf
+#endif
+
 /* Variable placement in nonvolatile memory; linker puts this in right place */
 #define __fram __attribute__((section(".fram_vars")))
+
+#define CHAN_NAME_SIZE 16
 
 typedef void (task_func_t)(void);
 typedef unsigned chain_time_t;
 typedef unsigned task_mask_t;
 
-typedef struct {
+typedef struct _chan_diag_t {
+    char source_name[CHAN_NAME_SIZE];
+    char dest_name[CHAN_NAME_SIZE];
+} chan_diag_t;
+
+typedef struct _chan_field_meta_t {
     chain_time_t timestamp;
 } chan_field_meta_t;
 
@@ -21,7 +35,7 @@ typedef struct {
  *           fields can be upcast to a generic type.
  */
 #define CHAN_FIELD(type, name) \
-    struct { \
+    struct _chan_field_ ## name { \
         chan_field_meta_t meta; \
         type value; \
     } name
@@ -59,6 +73,10 @@ extern context_t * volatile curctx;
  *         But, it's not obvious how to implement that with macros (would
  *         need "define inside a define"), so for now create symbols.
  *         The compiler should actually optimize these away.
+ *
+ *   TODO: Consider creating a table in form of struct and store
+ *         for each task: mask, index, name. That way we can
+ *         have access to task name for diagnostic output.
  */
 #define TASK(idx, func) \
     const task_mask_t TASK_MASK_NAME(func) = (1 << idx); \
@@ -102,10 +120,22 @@ void entry_task();
 #define INIT_FUNC(func) void _init() { func(); }
 
 void transition_to(task_func_t *next_task, task_mask_t bit_mask);
-void *chan_in(int count, ...);
+void *chan_in(const char *field_name, int count, ...);
 
-#define CHANNEL(src, dest, type) __fram type _ch_ ## src ## _ ## dest
-#define SELF_CHANNEL(task, type) __fram type _ch_ ## task[2]
+// TODO: make a meta field and put diag inside it
+// TODO: include diag field only when diagnostics are enabled
+#define CH_TYPE(src, dest, type) \
+    struct _ch_type_ ## src ## _ ## dest ## _ ## type { \
+        chan_diag_t diag; \
+        struct type data; \
+    }
+
+#define CHANNEL(src, dest, type) \
+    __fram CH_TYPE(src, dest, type) _ch_ ## src ## _ ## dest = \
+        { { #src, #dest } }
+#define SELF_CHANNEL(task, type) \
+    __fram CH_TYPE(task, task, type) _ch_ ## task[2] = \
+        { { { #task, #task } }, { { #task, #task } } }
 /** @brief Declare a multicast channel: one source many destinations
  *  @params name    short name used to refer to the channels from source and destinations
  *  @details Conceptually, the channel is between the specified source and
@@ -115,7 +145,9 @@ void *chan_in(int count, ...);
  *           Declarations of sources and destinations is necessary for perform
  *           compile-time checks planned for the future.
  */
-#define MULTICAST_CHANNEL(type, name, src, dest, ...) __fram type _ch_mc_ ## src ## name
+#define MULTICAST_CHANNEL(type, name, src, dest, ...) \
+    __fram CH_TYPE(src, name, type) _ch_mc_ ## src ## name = \
+        { { #src, "mc:" #name } }
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
 // TODO: compare right-shift vs. branch implementation for this:
@@ -149,33 +181,53 @@ void *chan_in(int count, ...);
 /** @brief Internal macro for counting channel arguments to a variadic macro */
 #define NUM_CHANS(...) (sizeof((void *[]){__VA_ARGS__})/sizeof(void *))
 
-/** @brief Read the named field from the given channels
- *  @details This macro retuns a pointer to value of the requested field.
- */
-#define CHAN_IN1(field, chan0) (&(chan0->field.value))
-
 /** @brief Read the most recently modified value from one of the given channels
  *  @details This macro retuns a pointer to the most recently modified value
  *           of the requested field.
+ *
+ *  NOTE: We pass the channel pointer instead of the field pointer
+ *        to have access to diagnostic info. The logic in chain_in
+ *        only strictly needs the fields, not the channels.
  */
-#define CHAN_IN(field, chan0, ...) \
-    ((__typeof__(chan0->field.value)*) \
-      ((unsigned char *)chan_in(1 + NUM_CHANS(__VA_ARGS__), chan0, __VA_ARGS__) + \
-      offsetof(__typeof__(chan0->field), value)))
+// #define CHAN_IN1(field, chan0) (&(chan0->data.field.value))
+#define CHAN_IN1(field, chan0) \
+    ((__typeof__(chan0->data.field.value)*) \
+      ((unsigned char *)chan_in(#field, 1, \
+          chan0, offsetof(__typeof__(chan0->data), field)) + \
+      offsetof(__typeof__(chan0->data.field), value)))
+#define CHAN_IN2(field, chan0, chan1) \
+    ((__typeof__(chan0->data.field.value)*) \
+      ((unsigned char *)chan_in(#field, 2, \
+          chan0, offsetof(__typeof__(chan0->data), field), \
+          chan1, offsetof(__typeof__(chan1->data), field)) + \
+      offsetof(__typeof__(chan0->data.field), value)))
 
 /** @brief Write a value into a channel
  *  @details NOTE: must take value by value (not by ref, which would be
  *           consistent with CHAN_IN), because must support constants.
  *
+ *  NOTE: It is possible to write this as a function to be consistent
+ *        with chan_in, but it is more complicated because the type of
+ *        value is not known, so we would have to pass a field offset
+ *        and size and do a memcpy.
+ *
  *  TODO: eliminate dest field through compiler support
  *  TODO: multicast: the chan will become a list: var arg
  *  TODO: does the compiler optimize what is effectively
  *        (&chan_buf)->value into chan_buf.value, for non-self channels?
+ *  TODO: printing the value without knowing the type is tricky,
+ *        perhaps, do got the memcpy route described above and
+ *        print in hex? Or, provide a format string in channel
+ *        field definition, or even a whole render function.
  */
 #define CHAN_OUT(field, val, chan) \
     do { \
-        chan->field.value = val; \
-        chan->field.meta.timestamp = curctx->time; \
+        chan->data.field.value = val; \
+        chan->data.field.meta.timestamp = curctx->time; \
+        LIBCHAIN_PRINTF("[%u] out: '%s': %s -> %s: %u\r\n", \
+               curctx->time, #field, \
+                chan->diag.source_name, chan->diag.dest_name, \
+               (unsigned)val); \
     } while(0)
 
 /** @brief Transfer control to the given task

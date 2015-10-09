@@ -14,6 +14,10 @@ void _entry_task();
  */
 void _init();
 
+struct _ch_type {
+    void * x;
+};
+
 __fram task_func_t * volatile curtask = _entry_task;
 
 __fram chain_time_t volatile curtime = 0;
@@ -106,31 +110,61 @@ void transition_to(task_func_t *next_task, task_mask_t next_task_mask)
     //     br next_task
 }
 
-void *chan_in(int count, ...)
+void *chan_in(const char *field_name, int count, ...)
 {
     va_list ap;
     unsigned i;
-    unsigned latest_update;
+    unsigned latest_update = 0;
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+    unsigned latest_chan_idx = 0;
+#endif
+
+    char *chan;
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+    chan_diag_t *chan_diag;
+#endif
+    char *chan_data;
+    unsigned field_offset;
+
     chan_field_meta_t *field;
-    chan_field_meta_t *latest_field;
+    chan_field_meta_t *latest_field = NULL;
+
+    LIBCHAIN_PRINTF("[%u] in: '%s':", curctx->time, field_name);
 
     va_start(ap, count);
 
-    // TODO: if timestamps are equal, return the first in the list
-    //       but, is this case even possible? how can two different
-    //       sources (i.e. different tasks) write to this destination
-    //       at the same logical time? Pretty sure, this is impossible.
-    //       So, implement asserts/aborts and abort in this case.
-    latest_field = va_arg(ap, __typeof__(field));
-    latest_update = latest_field->timestamp;
-    for (i = 1; i < count; ++i) {
-        field = va_arg(ap, __typeof__(field));
+    for (i = 0; i < count; ++i) {
+        chan = va_arg(ap, char *);
+        chan_data = chan + offsetof(CH_TYPE(_sa, _da, _ch_type), data);
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+        chan_diag = (chan_diag_t *)(chan +
+                           offsetof(CH_TYPE(_sb, _db, _ch_type), diag));
+#endif
+
+        field_offset = va_arg(ap, unsigned);
+        field = (chan_field_meta_t *)(chan_data + field_offset);
+
+        LIBCHAIN_PRINTF(" {%u} %s->%s [%u],", i,
+               chan_diag->source_name, chan_diag->dest_name,
+               field->timestamp);
 
         if (field->timestamp > latest_update) {
             latest_update = field->timestamp;
             latest_field = field;
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+            latest_chan_idx = i;
+#endif
         }
     }
+    LIBCHAIN_PRINTF(": {%u}\r\n", latest_chan_idx);
+
+    va_end(ap);
+
+    // TODO: No two timestamps compared above can be equal.
+    //       How can two different sources (i.e. different tasks) write to
+    //       this destination at the same logical time? Pretty sure, this is
+    //       impossible.
+    // ASSERT(latest_field != NULL);
 
     return (void *)latest_field;
 }

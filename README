@@ -1,1 +1,7 @@
 Intermittent execution using channels
+
+To show communication activity over channels using printf,
+define the following flag when compiling libchain *and*
+the application:
+
+    make LIBCHAIN_ENABLE_DIAGNOSTICS=1
