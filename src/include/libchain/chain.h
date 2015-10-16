@@ -158,9 +158,24 @@ void *chan_in(const char *field_name, int count, ...);
 #define CHANNEL(src, dest, type) \
     __fram CH_TYPE(src, dest, type) _ch_ ## src ## _ ## dest = \
         { { #src, #dest } }
+
 #define SELF_CHANNEL(task, type) \
     __fram CH_TYPE(task, task, type) _ch_ ## task[2] = \
         { { { #task, #task } }, { { #task, #task } } }
+
+/** @brief Declare a channel for passing arguments to a callable task
+ *  @details Callers would output values into this channels before
+ *           transitioning to the callable task.
+ *
+ *  TODO: should this be associated with the callee task? i.e. the
+ *        'callee' argument would be a task name? The concern is
+ *        that a callable task might need to be a special type
+ *        of a task composed of multiple other tasks (a 'hyper-task').
+ * */
+#define CALL_CHANNEL(callee, type) \
+    __fram CH_TYPE(caller, callee, type) _ch_call_ ## callee = \
+        { { #callee, #callee } }
+
 /** @brief Declare a multicast channel: one source many destinations
  *  @params name    short name used to refer to the channels from source and destinations
  *  @details Conceptually, the channel is between the specified source and
@@ -178,6 +193,12 @@ void *chan_in(const char *field_name, int count, ...);
 // TODO: compare right-shift vs. branch implementation for this:
 #define SELF_IN_CH(tsk)  (&_ch_ ## tsk[(curctx->self_chan_idx & curctx->task->mask) ? 0 : 1])
 #define SELF_OUT_CH(tsk) (&_ch_ ## tsk[(curctx->self_chan_idx & curctx->task->mask) ? 1 : 0])
+
+/** @brief A channel used to pass "arguments" to a callable task
+ *  @details Each callable task that takes arguments would have one of these.
+ * */
+#define CALL_CH(callee)  (&_ch_call_ ## callee)
+
 /** @brief Multicast channel reference
  *  @details Require the source for consistency with other channel types.
  *           In IN, require the one destination that's doing the read for consistency.
