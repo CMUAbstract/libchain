@@ -33,9 +33,14 @@ typedef struct _chan_field_meta_t {
  *  @param  name    Name of the field, include [] suffix to declare an array
  *  @details Metadata field must be the first, so that these
  *           fields can be upcast to a generic type.
+ *  NOTE: To make compiler error messages more useful, instead of making
+ *        the struct anonymous, we can name it with '_chan_field_ ## name'.
+ *        But, this imposes the restriction that field names should be unique
+ *        across unrelated channels. Adding the channel name to each CHAN_FIELD
+ *        macro is too verbose, so compromising on error msgs.
  */
 #define CHAN_FIELD(type, name) \
-    struct _chan_field_ ## name { \
+    struct { \
         chan_field_meta_t meta; \
         type value; \
     } name
