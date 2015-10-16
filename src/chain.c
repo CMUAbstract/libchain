@@ -129,7 +129,8 @@ void *chan_in(const char *field_name, int count, ...)
     chan_field_meta_t *field;
     chan_field_meta_t *latest_field = NULL;
 
-    LIBCHAIN_PRINTF("[%u] in: '%s':", curctx->time, field_name);
+    LIBCHAIN_PRINTF("[%u][0x%x & 0x%x] in: '%s':", curctx->time,
+                    curctx->self_chan_idx, curctx->task_mask, field_name);
 
     va_start(ap, count);
 
