@@ -2,31 +2,16 @@
 
 #include <stdarg.h>
 
-/** @brief Entry task function prototype
- *  @details We rely on the special name of this symbol to initialize the
- *           current task pointer. The entry function is defined in the user
- *           application through a macro provided by our header.
- */
-void _entry_task();
-
-/** @brief Init function prototype
- *  @details Same notes apply as for entry task function.
- */
-void _init();
-
 struct _ch_type {
     void * x;
 };
-
-__fram task_func_t * volatile curtask = _entry_task;
 
 __fram chain_time_t volatile curtime = 0;
 
 /* To update the context, fill-in the unused one and flip the pointer to it */
 __fram context_t context_1 = {0};
 __fram context_t context_0 = {
-    .task = _entry_task,
-    .task_mask = 0,
+    .task = TASK_REF(_entry_task),
     .time = 0,
     .self_chan_idx = 0,
     .next_ctx = &context_1,
@@ -44,7 +29,7 @@ __fram volatile unsigned _numBoots = 0;
  *
  *  TODO: mark this function as bare (i.e. no prologue) for efficiency
  */
-void transition_to(task_func_t *next_task, task_mask_t next_task_mask)
+void transition_to(const task_t *next_task)
 {
     context_t *next_ctx; // this should be in a register for efficiency
                          // (if we really care, write this func in asm)
@@ -87,9 +72,8 @@ void transition_to(task_func_t *next_task, task_mask_t next_task_mask)
 
     next_ctx = curctx->next_ctx;
     next_ctx->task = next_task;
-    next_ctx->task_mask = next_task_mask;
     next_ctx->time = curctx->time + 1;
-    next_ctx->self_chan_idx = curctx->self_chan_idx ^ curctx->task_mask;
+    next_ctx->self_chan_idx = curctx->self_chan_idx ^ curctx->task->mask;
 
     next_ctx->next_ctx = curctx;
     curctx = next_ctx;
@@ -98,7 +82,7 @@ void transition_to(task_func_t *next_task, task_mask_t next_task_mask)
         "mov #0x2400, r1\n"
         "br %[ntask]\n"
         :
-        : [ntask] "r" (next_task)
+        : [ntask] "r" (next_task->func)
     );
 
     // Alternative:
@@ -106,7 +90,7 @@ void transition_to(task_func_t *next_task, task_mask_t next_task_mask)
     //     mov pc, curtask 
     //     mov #0x2400, sp
     //
-    // transition_to(next_task):
+    // transition_to(next_task->func):
     //     br next_task
 }
 
@@ -130,7 +114,7 @@ void *chan_in(const char *field_name, int count, ...)
     chan_field_meta_t *latest_field = NULL;
 
     LIBCHAIN_PRINTF("[%u][0x%x & 0x%x] in: '%s':", curctx->time,
-                    curctx->self_chan_idx, curctx->task_mask, field_name);
+                    curctx->self_chan_idx, curctx->task->mask, field_name);
 
     va_start(ap, count);
 
@@ -186,7 +170,7 @@ int main() {
     __asm__ volatile ( // volatile because output operands unused by C
         "br %[nt]\n"
         : /* no outputs */
-        : [nt] "r" (curctx->task)
+        : [nt] "r" (curctx->task->func)
     );
 
     return 0; // TODO: write our own entry point and get rid of this

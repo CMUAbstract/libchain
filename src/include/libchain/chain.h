@@ -19,6 +19,11 @@ typedef void (task_func_t)(void);
 typedef unsigned chain_time_t;
 typedef unsigned task_mask_t;
 
+typedef struct {
+    task_func_t *func;
+    task_mask_t mask;
+} task_t;
+
 typedef struct _chan_diag_t {
     char source_name[CHAN_NAME_SIZE];
     char dest_name[CHAN_NAME_SIZE];
@@ -54,10 +59,7 @@ typedef struct _chan_field_meta_t {
 /** @brief Execution context */
 typedef struct _context_t {
     /** @brief Pointer to the most recently started but not finished task */
-    task_func_t *task;
-
-    /** @brief The bit in a bitmask that identifies the current task */
-    task_mask_t task_mask;
+    const task_t *task;
 
     /** @brief Logical time, ticks at task boundaries */
     chain_time_t time;
@@ -71,8 +73,8 @@ typedef struct _context_t {
 
 extern context_t * volatile curctx;
 
-/** @brief Internal macro for constructing name of task mask symbol */
-#define TASK_MASK_NAME(func) _task_ ## func ## _mask
+/** @brief Internal macro for constructing name of task symbol */
+#define TASK_SYM_NAME(func) _task_ ## func
 
 /** @brief Declare a task
  *
@@ -90,17 +92,21 @@ extern context_t * volatile curctx;
  *         have access to task name for diagnostic output.
  */
 #define TASK(idx, func) \
-    const task_mask_t TASK_MASK_NAME(func) = (1 << idx); \
     void func(); \
+    const task_t TASK_SYM_NAME(func) = { func, (1U << idx) }; \
+
+#define TASK_REF(func) &TASK_SYM_NAME(func)
 
 /** @brief Function called on every reboot
  *  @details This function usually initializes hardware, such as GPIO
  *           direction. The application must define this function.
  */
-void init();
+extern void init();
 
 /** @brief First task to run when the application starts
- *  @details The application must define this function.
+ *  @details Symbol is defined by the ENTRY_TASK macro.
+ *           This is not wrapped into a delaration macro, because applications
+ *           are not meant to declare tasks -- internal only.
  *
  *  TODO: An alternative would be to have a macro that defines
  *        the curtask symbol and initializes it to the entry task. The
@@ -109,7 +115,7 @@ void init();
  *        not constrained, and the whole thing is less magical when reading app
  *        code, but slightly more verbose.
  */
-void entry_task();
+extern const task_t TASK_SYM_NAME(_entry_task);
 
 /** @brief Declare the first task of the application
  *  @details This macro defines a function with a special name that is
@@ -123,14 +129,22 @@ void entry_task();
  *           of the library.
  */
 #define ENTRY_TASK(task) \
-    void _entry_task() { transition_to(task, TASK_MASK_NAME(task)); }
+    TASK(0, _entry_task) \
+    void _entry_task() { TRANSITION_TO(task); }
+
+/** @brief Init function prototype
+ *  @details We rely on the special name of this symbol to initialize the
+ *           current task pointer. The entry function is defined in the user
+ *           application through a macro provided by our header.
+ */
+void _init();
 
 /** @brief Declare the function to be called on each boot
  *  @details The same notes apply as for entry task.
  */
 #define INIT_FUNC(func) void _init() { func(); }
 
-void transition_to(task_func_t *next_task, task_mask_t bit_mask);
+void transition_to(const task_t *task);
 void *chan_in(const char *field_name, int count, ...);
 
 // TODO: make a meta field and put diag inside it
@@ -162,8 +176,8 @@ void *chan_in(const char *field_name, int count, ...);
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
 // TODO: compare right-shift vs. branch implementation for this:
-#define SELF_IN_CH(task)  (&_ch_ ## task[(curctx->self_chan_idx & curctx->task_mask) ? 0 : 1])
-#define SELF_OUT_CH(task) (&_ch_ ## task[(curctx->self_chan_idx & curctx->task_mask) ? 1 : 0])
+#define SELF_IN_CH(tsk)  (&_ch_ ## tsk[(curctx->self_chan_idx & curctx->task->mask) ? 0 : 1])
+#define SELF_OUT_CH(tsk) (&_ch_ ## tsk[(curctx->self_chan_idx & curctx->task->mask) ? 1 : 0])
 /** @brief Multicast channel reference
  *  @details Require the source for consistency with other channel types.
  *           In IN, require the one destination that's doing the read for consistency.
@@ -260,13 +274,13 @@ void *chan_in(const char *field_name, int count, ...);
         chan->data.field.value = val; \
         chan->data.field.meta.timestamp = curctx->time; \
         LIBCHAIN_PRINTF("[%u][0x%x & 0x%x] out: '%s': %s -> %s\r\n", \
-               curctx->time, curctx->self_chan_idx, curctx->task.mask, \
+               curctx->time, curctx->self_chan_idx, curctx->task->mask, \
                #field, chan->diag.source_name, chan->diag.dest_name); \
     } while(0)
 
 /** @brief Transfer control to the given task
  *  @param task     Name of the task function
  *  */
-#define TRANSITION_TO(task) transition_to(task, TASK_MASK_NAME(task))
+#define TRANSITION_TO(task) transition_to(TASK_REF(task))
 
 #endif // CHAIN_H
