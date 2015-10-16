@@ -212,6 +212,30 @@ void *chan_in(const char *field_name, int count, ...);
           chan0, offsetof(__typeof__(chan0->data), field), \
           chan1, offsetof(__typeof__(chan1->data), field)) + \
       offsetof(__typeof__(chan0->data.field), value)))
+#define CHAN_IN3(field, chan0, chan1, chan2) \
+    ((__typeof__(chan0->data.field.value)*) \
+      ((unsigned char *)chan_in(#field, 3, \
+          chan0, offsetof(__typeof__(chan0->data), field), \
+          chan1, offsetof(__typeof__(chan1->data), field), \
+          chan2, offsetof(__typeof__(chan2->data), field)) + \
+      offsetof(__typeof__(chan0->data.field), value)))
+#define CHAN_IN4(field, chan0, chan1, chan2, chan3) \
+    ((__typeof__(chan0->data.field.value)*) \
+      ((unsigned char *)chan_in(#field, 4, \
+          chan0, offsetof(__typeof__(chan0->data), field), \
+          chan1, offsetof(__typeof__(chan1->data), field), \
+          chan2, offsetof(__typeof__(chan2->data), field), \
+          chan3, offsetof(__typeof__(chan3->data), field)) + \
+      offsetof(__typeof__(chan0->data.field), value)))
+#define CHAN_IN5(field, chan0, chan1, chan2, chan3, chan4) \
+    ((__typeof__(chan0->data.field.value)*) \
+      ((unsigned char *)chan_in(#field, 5, \
+          chan0, offsetof(__typeof__(chan0->data), field), \
+          chan1, offsetof(__typeof__(chan1->data), field), \
+          chan2, offsetof(__typeof__(chan2->data), field), \
+          chan3, offsetof(__typeof__(chan3->data), field), \
+          chan4, offsetof(__typeof__(chan4->data), field)) + \
+      offsetof(__typeof__(chan0->data.field), value)))
 
 /** @brief Write a value into a channel
  *  @details NOTE: must take value by value (not by ref, which would be
