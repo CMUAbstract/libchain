@@ -51,7 +51,7 @@ typedef struct _chan_field_meta_t {
     } name
 
 #define CHAN_FIELD_ARRAY(type, name, size) \
-    struct _chan_field_ ## name { \
+    struct { \
         chan_field_meta_t meta; \
         type value; \
     } name[size]
