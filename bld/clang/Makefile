@@ -1,4 +1,4 @@
-EXEC = libchain.a
+EXEC = libchain.a.bc
 
 OBJECTS = \
 	chain.o \
