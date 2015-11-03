@@ -2,6 +2,7 @@
 #define CHAIN_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #ifndef LIBCHAIN_ENABLE_DIAGNOSTICS
 #define LIBCHAIN_PRINTF(...)
@@ -17,7 +18,7 @@
 
 typedef void (task_func_t)(void);
 typedef unsigned chain_time_t;
-typedef unsigned task_mask_t;
+typedef uint32_t task_mask_t;
 
 typedef struct {
     task_func_t *func;
@@ -93,7 +94,7 @@ extern context_t * volatile curctx;
  */
 #define TASK(idx, func) \
     void func(); \
-    const task_t TASK_SYM_NAME(func) = { func, (1U << idx) }; \
+    const task_t TASK_SYM_NAME(func) = { func, (1UL << idx) }; \
 
 #define TASK_REF(func) &TASK_SYM_NAME(func)
 
