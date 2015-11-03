@@ -18,10 +18,12 @@
 typedef void (task_func_t)(void);
 typedef unsigned chain_time_t;
 typedef uint32_t task_mask_t;
+typedef unsigned task_idx_t;
 
 typedef struct {
     task_func_t *func;
     task_mask_t mask;
+    task_idx_t idx;
 } task_t;
 
 typedef struct _chan_diag_t {
@@ -93,7 +95,7 @@ extern context_t * volatile curctx;
  */
 #define TASK(idx, func) \
     void func(); \
-    const task_t TASK_SYM_NAME(func) = { func, (1UL << idx) }; \
+    const task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx }; \
 
 #define TASK_REF(func) &TASK_SYM_NAME(func)
 
