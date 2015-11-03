@@ -8,6 +8,7 @@ include $(MAKER_ROOT)/Makefile.gcc
 SRC_ROOT = ../../src
 
 CFLAGS += \
+	-I $(LIBMSP_ROOT)/src/include \
 	-I $(SRC_ROOT)/include/libchain \
 
 ifdef LIBCHAIN_ENABLE_DIAGNOSTICS

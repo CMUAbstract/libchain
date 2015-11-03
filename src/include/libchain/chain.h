@@ -11,8 +11,7 @@
 #define LIBCHAIN_PRINTF printf
 #endif
 
-/* Variable placement in nonvolatile memory; linker puts this in right place */
-#define __fram __attribute__((section(".fram_vars")))
+#include <libmsp/mem.h>
 
 #define CHAN_NAME_SIZE 32
 
@@ -157,11 +156,11 @@ void *chan_in(const char *field_name, int count, ...);
     }
 
 #define CHANNEL(src, dest, type) \
-    __fram CH_TYPE(src, dest, type) _ch_ ## src ## _ ## dest = \
+    __nv CH_TYPE(src, dest, type) _ch_ ## src ## _ ## dest = \
         { { #src, #dest } }
 
 #define SELF_CHANNEL(task, type) \
-    __fram CH_TYPE(task, task, type) _ch_ ## task[2] = \
+    __nv CH_TYPE(task, task, type) _ch_ ## task[2] = \
         { { { #task, #task } }, { { #task, #task } } }
 
 /** @brief Declare a channel for passing arguments to a callable task
@@ -174,10 +173,10 @@ void *chan_in(const char *field_name, int count, ...);
  *        of a task composed of multiple other tasks (a 'hyper-task').
  * */
 #define CALL_CHANNEL(callee, type) \
-    __fram CH_TYPE(caller, callee, type) _ch_call_ ## callee = \
+    __nv CH_TYPE(caller, callee, type) _ch_call_ ## callee = \
         { { #callee, "call:"#callee } }
 #define RET_CHANNEL(callee, type) \
-    __fram CH_TYPE(caller, callee, type) _ch_ret_ ## callee = \
+    __nv CH_TYPE(caller, callee, type) _ch_ret_ ## callee = \
         { { #callee, "ret:"#callee } }
 
 /** @brief Delcare a channel for receiving results from a callable task
@@ -188,7 +187,7 @@ void *chan_in(const char *field_name, int count, ...);
  *           before the next call to the same task is made.
  */
 #define RETURN_CHANNEL(callee, type) \
-    __fram CH_TYPE(caller, callee, type) _ch_ret_ ## callee = \
+    __nv CH_TYPE(caller, callee, type) _ch_ret_ ## callee = \
         { { #callee, "ret:"#callee } }
 
 /** @brief Declare a multicast channel: one source many destinations
@@ -201,7 +200,7 @@ void *chan_in(const char *field_name, int count, ...);
  *           compile-time checks planned for the future.
  */
 #define MULTICAST_CHANNEL(type, name, src, dest, ...) \
-    __fram CH_TYPE(src, name, type) _ch_mc_ ## src ## _ ## name = \
+    __nv CH_TYPE(src, name, type) _ch_mc_ ## src ## _ ## name = \
         { { #src, "mc:" #name } }
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
