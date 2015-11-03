@@ -175,7 +175,21 @@ void *chan_in(const char *field_name, int count, ...);
  * */
 #define CALL_CHANNEL(callee, type) \
     __fram CH_TYPE(caller, callee, type) _ch_call_ ## callee = \
-        { { #callee, #callee } }
+        { { #callee, "call:"#callee } }
+#define RET_CHANNEL(callee, type) \
+    __fram CH_TYPE(caller, callee, type) _ch_ret_ ## callee = \
+        { { #callee, "ret:"#callee } }
+
+/** @brief Delcare a channel for receiving results from a callable task
+ *  @details Callable tasks output values into this channel, and a
+ *           result-processing task would collect the result. The
+ *           result-processing task does not need to be dedicated
+ *           to this purpose, but the results need to be collected
+ *           before the next call to the same task is made.
+ */
+#define RETURN_CHANNEL(callee, type) \
+    __fram CH_TYPE(caller, callee, type) _ch_ret_ ## callee = \
+        { { #callee, "ret:"#callee } }
 
 /** @brief Declare a multicast channel: one source many destinations
  *  @params name    short name used to refer to the channels from source and destinations
@@ -195,10 +209,13 @@ void *chan_in(const char *field_name, int count, ...);
 #define SELF_IN_CH(tsk)  (&_ch_ ## tsk[(curctx->self_chan_idx & curctx->task->mask) ? 0 : 1])
 #define SELF_OUT_CH(tsk) (&_ch_ ## tsk[(curctx->self_chan_idx & curctx->task->mask) ? 1 : 0])
 
-/** @brief A channel used to pass "arguments" to a callable task
+/** @brief Reference to a channel used to pass "arguments" to a callable task
  *  @details Each callable task that takes arguments would have one of these.
  * */
 #define CALL_CH(callee)  (&_ch_call_ ## callee)
+
+/** @brief Reference to a channel used to receive results from a callable task */
+#define RET_CH(callee)  (&_ch_ret_ ## callee)
 
 /** @brief Multicast channel reference
  *  @details Require the source for consistency with other channel types.
