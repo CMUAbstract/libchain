@@ -1,10 +1,20 @@
-#include <chain.h>
-
 #include <stdarg.h>
+#include <string.h>
 
-struct _ch_type {
+#ifndef LIBCHAIN_ENABLE_DIAGNOSTICS
+#define LIBCHAIN_PRINTF(...)
+#else
+#include <stdio.h>
+#define LIBCHAIN_PRINTF printf
+#endif
+
+#include "chain.h"
+
+/* Dummy types for offset calculations */
+struct _void_type_t {
     void * x;
 };
+typedef struct _void_type_t void_type_t;
 
 __nv chain_time_t volatile curtime = 0;
 
@@ -94,52 +104,82 @@ void transition_to(const task_t *next_task)
     //     br next_task
 }
 
-void *chan_in(const char *field_name, int count, ...)
+/** @brief Sync: return the most recently updated value of a given field
+ *  @param field_name   string name of the field, used for diagnostics
+ *  @param var_size     size of the 'variable' type (var_meta_t + value type)
+ *  @param count        number of channels to sync
+ *  @param ...          channel ptr, field offset in corresponding message type
+ *  @return Pointer to the value, ready to be cast to final value type pointer
+ */
+void *chan_in(const char *field_name, size_t var_size, int count, ...)
 {
     va_list ap;
     unsigned i;
     unsigned latest_update = 0;
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
     unsigned latest_chan_idx = 0;
+    char curidx;
 #endif
 
-    char *chan;
-    char *chan_data;
-    unsigned field_offset;
+    var_meta_t *var;
+    var_meta_t *latest_var = NULL;
 
-    chan_field_meta_t *field;
-    chan_field_meta_t *latest_field = NULL;
-
-    LIBCHAIN_PRINTF("[%u][0x%x & 0x%x] in: '%s':", curctx->time,
-                    (uint16_t)curctx->self_chan_idx, (uint16_t)curctx->task->mask,
-                    field_name);
+    LIBCHAIN_PRINTF("[%u] in: '%s':", curctx->time, field_name);
 
     va_start(ap, count);
 
     for (i = 0; i < count; ++i) {
-        chan = va_arg(ap, char *);
-        chan_data = chan + offsetof(CH_TYPE(_sa, _da, _ch_type), data);
-        chan_meta = (chan_meta_t *)(chan +
-                           offsetof(CH_TYPE(_sb, _db, _ch_type), meta));
+        uint8_t *chan = va_arg(ap, uint8_t *);
+        size_t field_offset = va_arg(ap, unsigned);
 
-        field_offset = va_arg(ap, unsigned);
-        field = (chan_field_meta_t *)(chan_data + field_offset);
+        uint8_t *chan_data = chan + offsetof(CH_TYPE(_sa, _da, _void_type_t), data);
+        chan_meta_t *chan_meta = (chan_meta_t *)(chan +
+                                    offsetof(CH_TYPE(_sb, _db, _void_type_t), meta));
+        uint8_t *field = chan_data + field_offset;
 
-        LIBCHAIN_PRINTF(" {%u} %s->%s [%u],", i,
-               chan_meta.diag.source_name, chan_meta.diag.dest_name,
-               field->timestamp);
+        switch (chan_meta->type) {
+            case CHAN_TYPE_SELF: {
+                self_field_meta_t *self_field = (self_field_meta_t *)field;
+                var = (var_meta_t *)(field +
+                        offsetof(SELF_FIELD_TYPE(void_type_t), var) +
+                        var_size * self_field->curidx);
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+                curidx = '0' + self_field->curidx;
+#endif
+                break;
+            }
+            default:
+                var = (var_meta_t *)(field +
+                        offsetof(FIELD_TYPE(void_type_t), var));
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+                curidx = ' ';
+                break;
+#endif
+        }
 
-        if (field->timestamp > latest_update) {
-            latest_update = field->timestamp;
-            latest_field = field;
+        LIBCHAIN_PRINTF(" {%u} %s->%s:%c [%u],", i,
+               chan_meta->diag.source_name, chan_meta->diag.dest_name,
+               curidx, var->timestamp);
+
+        if (var->timestamp > latest_update) {
+            latest_update = var->timestamp;
+            latest_var = var;
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
             latest_chan_idx = i;
 #endif
         }
     }
-    LIBCHAIN_PRINTF(": {%u}\r\n", latest_chan_idx);
-
     va_end(ap);
+
+    LIBCHAIN_PRINTF(": {latest %u}: ", latest_chan_idx);
+
+    uint8_t *value = (uint8_t *)latest_var + offsetof(VAR_TYPE(void_type_t), value);
+
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+    for (int i = 0; i < var_size - sizeof(var_meta_t); ++i)
+        LIBCHAIN_PRINTF("%02x ", value[i]);
+    LIBCHAIN_PRINTF("\r\n");
+#endif
 
     // TODO: No two timestamps compared above can be equal.
     //       How can two different sources (i.e. different tasks) write to
@@ -147,7 +187,73 @@ void *chan_in(const char *field_name, int count, ...)
     //       impossible.
     // ASSERT(latest_field != NULL);
 
-    return (void *)latest_field;
+    return (void *)value;
+}
+
+/** @brief Write a value to a field in a channel
+ *  @param field_name    string name of the field, used for diagnostics
+ *  @param value         pointer to value data
+ *  @param var_size     size of the 'variable' type (var_meta_t + value type)
+ *  @param count         number of output channels
+ *  @param ...           channel ptr, field offset in corresponding message type
+ */
+void chan_out(const char *field_name, void *value, size_t var_size, int count, ...)
+{
+    va_list ap;
+    int i;
+    var_meta_t *var;
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+    char curidx;
+#endif
+
+    va_start(ap, count);
+
+    for (i = 0; i < count; ++i) {
+        uint8_t *chan = va_arg(ap, uint8_t *);
+        size_t field_offset = va_arg(ap, unsigned);
+
+        uint8_t *chan_data = chan + offsetof(CH_TYPE(_sa, _da, _void_type_t), data);
+        chan_meta_t *chan_meta = (chan_meta_t *)(chan +
+                                    offsetof(CH_TYPE(_sb, _db, _void_type_t), meta));
+        uint8_t *field = chan_data + field_offset;
+
+        switch (chan_meta->type) {
+            case CHAN_TYPE_SELF: {
+                self_field_meta_t *self_field = (self_field_meta_t *)field;
+                self_field->curidx ^= 0x1;
+                var = (var_meta_t *)(field +
+                        offsetof(SELF_FIELD_TYPE(void_type_t), var) +
+                        var_size * self_field->curidx);
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+                curidx = '0' + self_field->curidx;
+#endif
+                break;
+            }
+            default:
+                var = (var_meta_t *)(field +
+                        offsetof(FIELD_TYPE(void_type_t), var));
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+                curidx = ' ';
+                break;
+#endif
+        }
+
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+        LIBCHAIN_PRINTF("[%u] out: '%s': %s -> %s:%c: ",
+               curctx->time, field_name,
+               chan_meta->diag.source_name, chan_meta->diag.dest_name, curidx);
+
+        for (int i = 0; i < var_size - sizeof(var_meta_t); ++i)
+            LIBCHAIN_PRINTF("%02x ", *((uint8_t *)value + i));
+        LIBCHAIN_PRINTF("\r\n");
+#endif
+
+        var->timestamp = curctx->time;
+        void *var_value = (uint8_t *)var + offsetof(VAR_TYPE(void_type_t), value);
+        memcpy(var_value, value, var_size - sizeof(var_meta_t));
+    }
+
+    va_end(ap);
 }
 
 /** @brief Entry point upon reboot */

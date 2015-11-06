@@ -4,13 +4,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#ifndef LIBCHAIN_ENABLE_DIAGNOSTICS
-#define LIBCHAIN_PRINTF(...)
-#else
-#include <stdio.h>
-#define LIBCHAIN_PRINTF printf
-#endif
-
 #include <libmsp/mem.h>
 
 #define CHAN_NAME_SIZE 32
@@ -20,24 +13,61 @@ typedef unsigned chain_time_t;
 typedef uint32_t task_mask_t;
 typedef unsigned task_idx_t;
 
+typedef enum {
+    CHAN_TYPE_T2T,
+    CHAN_TYPE_SELF,
+    CHAN_TYPE_MULTICAST,
+    CHAN_TYPE_CALL,
+    CHAN_TYPE_RETURN,
+} chan_type_t;
+
 typedef struct {
     task_func_t *func;
     task_mask_t mask;
     task_idx_t idx;
 } task_t;
 
+// TODO: include diag fields only when diagnostics are enabled
 typedef struct _chan_diag_t {
     char source_name[CHAN_NAME_SIZE];
     char dest_name[CHAN_NAME_SIZE];
 } chan_diag_t;
 
 typedef struct _chan_meta_t {
+    chan_type_t type;
     chan_diag_t diag;
 } chan_meta_t;
 
-typedef struct _chan_field_meta_t {
+typedef struct _var_meta_t {
     chain_time_t timestamp;
-} chan_field_meta_t;
+} var_meta_t;
+
+typedef struct _self_field_meta_t {
+    uint8_t curidx;
+} self_field_meta_t;
+
+#define VAR_TYPE(type) \
+    struct { \
+        var_meta_t meta; \
+        type value; \
+    } \
+
+#define FIELD_TYPE(type) \
+    struct { \
+        VAR_TYPE(type) var; \
+    }
+
+#define SELF_FIELD_TYPE(type) \
+    struct { \
+        self_field_meta_t meta; \
+        VAR_TYPE(type) var[2]; \
+    }
+
+#define CH_TYPE(src, dest, type) \
+    struct _ch_type_ ## src ## _ ## dest ## _ ## type { \
+        chan_meta_t meta; \
+        struct type data; \
+    }
 
 /** @brief Declare a value transmittable over a channel
  *  @param  type    Type of the field value
@@ -49,18 +79,13 @@ typedef struct _chan_field_meta_t {
  *        But, this imposes the restriction that field names should be unique
  *        across unrelated channels. Adding the channel name to each CHAN_FIELD
  *        macro is too verbose, so compromising on error msgs.
+ *
+ *  TODO: could CHAN_FIELD be a special case of CHAN_FIELD_ARRARY with size = 1?
  */
-#define CHAN_FIELD(type, name) \
-    struct { \
-        chan_field_meta_t meta; \
-        type value; \
-    } name
-
-#define CHAN_FIELD_ARRAY(type, name, size) \
-    struct { \
-        chan_field_meta_t meta; \
-        type value; \
-    } name[size]
+#define CHAN_FIELD(type, name)                  FIELD_TYPE(type) name
+#define CHAN_FIELD_ARRAY(type, name, size)      FIELD_TYPE(type) name[size]
+#define SELF_CHAN_FIELD(type, name)             SELF_FIELD_TYPE(type) name
+#define SELF_CHAN_FIELD_ARRAY(type, name, size) SELF_FIELD_TYPE(type) name[size]
 
 /** @brief Execution context */
 typedef struct _context_t {
@@ -151,23 +176,17 @@ void _init();
 #define INIT_FUNC(func) void _init() { func(); }
 
 void transition_to(const task_t *task);
-void *chan_in(const char *field_name, int count, ...);
-
-// TODO: make a meta field and put diag inside it
-// TODO: include diag field only when diagnostics are enabled
-#define CH_TYPE(src, dest, type) \
-    struct _ch_type_ ## src ## _ ## dest ## _ ## type { \
-        chan_meta_t meta; \
-        struct type data; \
-    }
+void *chan_in(const char *field_name, size_t var_size, int count, ...);
+void chan_out(const char *field_name, void *value, size_t var_size,
+              int count, ...);
 
 #define CHANNEL(src, dest, type) \
     __nv CH_TYPE(src, dest, type) _ch_ ## src ## _ ## dest = \
-        { { { #src, #dest } } }
+        { { CHAN_TYPE_T2T, { #src, #dest } } }
 
 #define SELF_CHANNEL(task, type) \
-    __nv CH_TYPE(task, task, type) _ch_ ## task[2] = \
-        { { { { #task, #task } } }, { { { #task, #task } } } }
+    __nv CH_TYPE(task, task, type) _ch_ ## task ## _ ## task = \
+        { { CHAN_TYPE_SELF, { #task, #task } } }
 
 /** @brief Declare a channel for passing arguments to a callable task
  *  @details Callers would output values into this channels before
@@ -180,10 +199,10 @@ void *chan_in(const char *field_name, int count, ...);
  * */
 #define CALL_CHANNEL(callee, type) \
     __nv CH_TYPE(caller, callee, type) _ch_call_ ## callee = \
-        { { { #callee, "call:"#callee } } }
+        { { CHAN_TYPE_CALL, { #callee, "call:"#callee } } }
 #define RET_CHANNEL(callee, type) \
     __nv CH_TYPE(caller, callee, type) _ch_ret_ ## callee = \
-        { { { #callee, "ret:"#callee } } }
+        { { CHAN_TYPE_RETURN, { #callee, "ret:"#callee } } }
 
 /** @brief Delcare a channel for receiving results from a callable task
  *  @details Callable tasks output values into this channel, and a
@@ -194,7 +213,7 @@ void *chan_in(const char *field_name, int count, ...);
  */
 #define RETURN_CHANNEL(callee, type) \
     __nv CH_TYPE(caller, callee, type) _ch_ret_ ## callee = \
-        { { { #callee, "ret:"#callee } } }
+        { { CHAN_TYPE_RETURN, { #callee, "ret:"#callee } } }
 
 /** @brief Declare a multicast channel: one source many destinations
  *  @params name    short name used to refer to the channels from source and destinations
@@ -207,12 +226,14 @@ void *chan_in(const char *field_name, int count, ...);
  */
 #define MULTICAST_CHANNEL(type, name, src, dest, ...) \
     __nv CH_TYPE(src, name, type) _ch_mc_ ## src ## _ ## name = \
-        { { { #src, "mc:" #name } } }
+        { { CHAN_TYPE_MULTICAST, { #src, "mc:" #name } } }
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
-// TODO: compare right-shift vs. branch implementation for this:
-#define SELF_IN_CH(tsk)  (&_ch_ ## tsk[(curctx->self_chan_idx & curctx->task->mask) ? 0 : 1])
-#define SELF_OUT_CH(tsk) (&_ch_ ## tsk[(curctx->self_chan_idx & curctx->task->mask) ? 1 : 0])
+#define SELF_CH(tsk)  CH(tsk, tsk)
+
+/* For compatibility */
+#define SELF_IN_CH(tsk)  CH(tsk, tsk)
+#define SELF_OUT_CH(tsk) CH(tsk, tsk)
 
 /** @brief Reference to a channel used to pass "arguments" to a callable task
  *  @details Each callable task that takes arguments would have one of these.
@@ -259,70 +280,62 @@ void *chan_in(const char *field_name, int count, ...);
  *        only strictly needs the fields, not the channels.
  */
 // #define CHAN_IN1(field, chan0) (&(chan0->data.field.value))
-#define CHAN_IN1(field, chan0) \
-    ((__typeof__(chan0->data.field.value)*) \
-      ((unsigned char *)chan_in(#field, 1, \
-          chan0, offsetof(__typeof__(chan0->data), field)) + \
-      offsetof(__typeof__(chan0->data.field), value)))
-#define CHAN_IN2(field, chan0, chan1) \
-    ((__typeof__(chan0->data.field.value)*) \
-      ((unsigned char *)chan_in(#field, 2, \
+#define CHAN_IN1(type, field, chan0) \
+    ((type*)((unsigned char *)chan_in(#field, sizeof(VAR_TYPE(type)), 1, \
+          chan0, offsetof(__typeof__(chan0->data), field))))
+#define CHAN_IN2(type, field, chan0, chan1) \
+    ((type*)((unsigned char *)chan_in(#field, sizeof(VAR_TYPE(type)), 2, \
           chan0, offsetof(__typeof__(chan0->data), field), \
-          chan1, offsetof(__typeof__(chan1->data), field)) + \
-      offsetof(__typeof__(chan0->data.field), value)))
-#define CHAN_IN3(field, chan0, chan1, chan2) \
-    ((__typeof__(chan0->data.field.value)*) \
-      ((unsigned char *)chan_in(#field, 3, \
+          chan1, offsetof(__typeof__(chan1->data), field))))
+#define CHAN_IN3(type, field, chan0, chan1, chan2) \
+    ((type*)((unsigned char *)chan_in(#field, sizeof(VAR_TYPE(type)), 3, \
           chan0, offsetof(__typeof__(chan0->data), field), \
           chan1, offsetof(__typeof__(chan1->data), field), \
-          chan2, offsetof(__typeof__(chan2->data), field)) + \
-      offsetof(__typeof__(chan0->data.field), value)))
-#define CHAN_IN4(field, chan0, chan1, chan2, chan3) \
-    ((__typeof__(chan0->data.field.value)*) \
-      ((unsigned char *)chan_in(#field, 4, \
+          chan2, offsetof(__typeof__(chan2->data), field))))
+#define CHAN_IN4(type, field, chan0, chan1, chan2, chan3) \
+    ((type*)((unsigned char *)chan_in(#field, sizeof(VAR_TYPE(type)), 4, \
           chan0, offsetof(__typeof__(chan0->data), field), \
           chan1, offsetof(__typeof__(chan1->data), field), \
           chan2, offsetof(__typeof__(chan2->data), field), \
-          chan3, offsetof(__typeof__(chan3->data), field)) + \
-      offsetof(__typeof__(chan0->data.field), value)))
-#define CHAN_IN5(field, chan0, chan1, chan2, chan3, chan4) \
-    ((__typeof__(chan0->data.field.value)*) \
-      ((unsigned char *)chan_in(#field, 5, \
+          chan3, offsetof(__typeof__(chan3->data), field))))
+#define CHAN_IN5(type, field, chan0, chan1, chan2, chan3, chan4) \
+    ((type*)((unsigned char *)chan_in(#field, sizeof(VAR_TYPE(type)), 5, \
           chan0, offsetof(__typeof__(chan0->data), field), \
           chan1, offsetof(__typeof__(chan1->data), field), \
           chan2, offsetof(__typeof__(chan2->data), field), \
           chan3, offsetof(__typeof__(chan3->data), field), \
-          chan4, offsetof(__typeof__(chan4->data), field)) + \
-      offsetof(__typeof__(chan0->data.field), value)))
+          chan4, offsetof(__typeof__(chan4->data), field))))
 
 /** @brief Write a value into a channel
- *  @details NOTE: must take value by value (not by ref, which would be
- *           consistent with CHAN_IN), because must support constants.
- *
- *  NOTE: It is possible to write this as a function to be consistent
- *        with chan_in, but it is more complicated because the type of
- *        value is not known, so we would have to pass a field offset
- *        and size and do a memcpy.
- *
- *  TODO: eliminate dest field through compiler support
- *  TODO: multicast: the chan will become a list: var arg
- *  TODO: does the compiler optimize what is effectively
- *        (&chan_buf)->value into chan_buf.value, for non-self channels?
- *  TODO: printing the value without knowing the type is tricky,
- *        perhaps, do got the memcpy route described above and
- *        print in hex? Or, provide a format string in channel
- *        field definition, or even a whole render function.
+ *  @details Note: the list of arguments here is a list of
+ *  channels, not of multicast destinations (tasks). A
+ *  multicast channel would show up as one argument here.
  */
-#define CHAN_OUT(field, val, chan) \
-    do { \
-        chan->data.field.value = val; \
-        chan->data.field.meta.timestamp = curctx->time; \
-        LIBCHAIN_PRINTF("[%u][0x%x & 0x%x] out: '%s': %s -> %s\r\n", \
-               curctx->time, \
-               (uint16_t)curctx->self_chan_idx, \
-               (uint16_t)curctx->task->mask, \
-               #field, chan->meta.diag.source_name, chan->meta.diag.dest_name); \
-    } while(0)
+#define CHAN_OUT1(type, field, val, chan0) \
+    chan_out(#field, &val, sizeof(VAR_TYPE(type)), 1, \
+             chan0, offsetof(__typeof__(chan0->data), field))
+#define CHAN_OUT2(type, field, val, chan0, chan1) \
+    chan_out(#field, &val, sizeof(VAR_TYPE(type)), 2, \
+             chan0, offsetof(__typeof__(chan0->data), field), \
+             chan1, offsetof(__typeof__(chan1->data), field))
+#define CHAN_OUT3(type, field, val, chan0, chan1, chan2) \
+    chan_out(#field, &val, sizeof(VAR_TYPE(type)), 3, \
+             chan0, offsetof(__typeof__(chan0->data), field), \
+             chan1, offsetof(__typeof__(chan1->data), field), \
+             chan2, offsetof(__typeof__(chan2->data), field))
+#define CHAN_OUT4(type, field, val, chan0, chan1, chan2, chan3) \
+    chan_out(#field, &val, sizeof(VAR_TYPE(type)), 4, \
+             chan0, offsetof(__typeof__(chan0->data), field), \
+             chan1, offsetof(__typeof__(chan1->data), field), \
+             chan2, offsetof(__typeof__(chan2->data), field), \
+             chan3, offsetof(__typeof__(chan3->data), field))
+#define CHAN_OUT5(type, field, val, chan0, chan1, chan2, chan3, chan4) \
+    chan_out(#field, &val, sizeof(VAR_TYPE(type)), 5, \
+             chan0, offsetof(__typeof__(chan0->data), field), \
+             chan1, offsetof(__typeof__(chan1->data), field), \
+             chan2, offsetof(__typeof__(chan2->data), field), \
+             chan3, offsetof(__typeof__(chan3->data), field), \
+             chan4, offsetof(__typeof__(chan4->data), field))
 
 /** @brief Transfer control to the given task
  *  @param task     Name of the task function
