@@ -314,7 +314,9 @@ void *chan_in(const char *field_name, int count, ...);
         chan->data.field.value = val; \
         chan->data.field.meta.timestamp = curctx->time; \
         LIBCHAIN_PRINTF("[%u][0x%x & 0x%x] out: '%s': %s -> %s\r\n", \
-               curctx->time, curctx->self_chan_idx, curctx->task->mask, \
+               curctx->time, \
+               (uint16_t)curctx->self_chan_idx, \
+               (uint16_t)curctx->task->mask, \
                #field, chan->diag.source_name, chan->diag.dest_name); \
     } while(0)
 
