@@ -177,8 +177,8 @@ void _init();
 
 void transition_to(const task_t *task);
 void *chan_in(const char *field_name, size_t var_size, int count, ...);
-void chan_out(const char *field_name, void *value, size_t var_size,
-              int count, ...);
+void chan_out(const char *field_name, const void *value,
+              size_t var_size, int count, ...);
 
 #define CHANNEL(src, dest, type) \
     __nv CH_TYPE(src, dest, type) _ch_ ## src ## _ ## dest = \

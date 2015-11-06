@@ -197,7 +197,8 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
  *  @param count         number of output channels
  *  @param ...           channel ptr, field offset in corresponding message type
  */
-void chan_out(const char *field_name, void *value, size_t var_size, int count, ...)
+void chan_out(const char *field_name, const void *value,
+              size_t var_size, int count, ...)
 {
     va_list ap;
     int i;
