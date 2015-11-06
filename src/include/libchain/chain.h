@@ -31,6 +31,10 @@ typedef struct _chan_diag_t {
     char dest_name[CHAN_NAME_SIZE];
 } chan_diag_t;
 
+typedef struct _chan_meta_t {
+    chan_diag_t diag;
+} chan_meta_t;
+
 typedef struct _chan_field_meta_t {
     chain_time_t timestamp;
 } chan_field_meta_t;
@@ -153,17 +157,17 @@ void *chan_in(const char *field_name, int count, ...);
 // TODO: include diag field only when diagnostics are enabled
 #define CH_TYPE(src, dest, type) \
     struct _ch_type_ ## src ## _ ## dest ## _ ## type { \
-        chan_diag_t diag; \
+        chan_meta_t meta; \
         struct type data; \
     }
 
 #define CHANNEL(src, dest, type) \
     __nv CH_TYPE(src, dest, type) _ch_ ## src ## _ ## dest = \
-        { { #src, #dest } }
+        { { { #src, #dest } } }
 
 #define SELF_CHANNEL(task, type) \
     __nv CH_TYPE(task, task, type) _ch_ ## task[2] = \
-        { { { #task, #task } }, { { #task, #task } } }
+        { { { { #task, #task } } }, { { { #task, #task } } } }
 
 /** @brief Declare a channel for passing arguments to a callable task
  *  @details Callers would output values into this channels before
@@ -176,10 +180,10 @@ void *chan_in(const char *field_name, int count, ...);
  * */
 #define CALL_CHANNEL(callee, type) \
     __nv CH_TYPE(caller, callee, type) _ch_call_ ## callee = \
-        { { #callee, "call:"#callee } }
+        { { { #callee, "call:"#callee } } }
 #define RET_CHANNEL(callee, type) \
     __nv CH_TYPE(caller, callee, type) _ch_ret_ ## callee = \
-        { { #callee, "ret:"#callee } }
+        { { { #callee, "ret:"#callee } } }
 
 /** @brief Delcare a channel for receiving results from a callable task
  *  @details Callable tasks output values into this channel, and a
@@ -190,7 +194,7 @@ void *chan_in(const char *field_name, int count, ...);
  */
 #define RETURN_CHANNEL(callee, type) \
     __nv CH_TYPE(caller, callee, type) _ch_ret_ ## callee = \
-        { { #callee, "ret:"#callee } }
+        { { { #callee, "ret:"#callee } } }
 
 /** @brief Declare a multicast channel: one source many destinations
  *  @params name    short name used to refer to the channels from source and destinations
@@ -203,7 +207,7 @@ void *chan_in(const char *field_name, int count, ...);
  */
 #define MULTICAST_CHANNEL(type, name, src, dest, ...) \
     __nv CH_TYPE(src, name, type) _ch_mc_ ## src ## _ ## name = \
-        { { #src, "mc:" #name } }
+        { { { #src, "mc:" #name } } }
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
 // TODO: compare right-shift vs. branch implementation for this:
@@ -317,7 +321,7 @@ void *chan_in(const char *field_name, int count, ...);
                curctx->time, \
                (uint16_t)curctx->self_chan_idx, \
                (uint16_t)curctx->task->mask, \
-               #field, chan->diag.source_name, chan->diag.dest_name); \
+               #field, chan->meta.diag.source_name, chan->meta.diag.dest_name); \
     } while(0)
 
 /** @brief Transfer control to the given task

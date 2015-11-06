@@ -104,9 +104,6 @@ void *chan_in(const char *field_name, int count, ...)
 #endif
 
     char *chan;
-#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
-    chan_diag_t *chan_diag;
-#endif
     char *chan_data;
     unsigned field_offset;
 
@@ -122,16 +119,14 @@ void *chan_in(const char *field_name, int count, ...)
     for (i = 0; i < count; ++i) {
         chan = va_arg(ap, char *);
         chan_data = chan + offsetof(CH_TYPE(_sa, _da, _ch_type), data);
-#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
-        chan_diag = (chan_diag_t *)(chan +
-                           offsetof(CH_TYPE(_sb, _db, _ch_type), diag));
-#endif
+        chan_meta = (chan_meta_t *)(chan +
+                           offsetof(CH_TYPE(_sb, _db, _ch_type), meta));
 
         field_offset = va_arg(ap, unsigned);
         field = (chan_field_meta_t *)(chan_data + field_offset);
 
         LIBCHAIN_PRINTF(" {%u} %s->%s [%u],", i,
-               chan_diag->source_name, chan_diag->dest_name,
+               chan_meta.diag.source_name, chan_meta.diag.dest_name,
                field->timestamp);
 
         if (field->timestamp > latest_update) {
