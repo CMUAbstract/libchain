@@ -126,7 +126,7 @@ extern context_t * volatile curctx;
     void func(); \
     const task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx }; \
 
-#define TASK_REF(func) &TASK_SYM_NAME(func)
+#define TASK_REF(func) TASK_SYM_NAME(func)
 
 /** @brief Function called on every reboot
  *  @details This function usually initializes hardware, such as GPIO
@@ -340,6 +340,6 @@ void chan_out(const char *field_name, const void *value,
 /** @brief Transfer control to the given task
  *  @param task     Name of the task function
  *  */
-#define TRANSITION_TO(task) transition_to(TASK_REF(task))
+#define TRANSITION_TO(task) transition_to(&TASK_REF(task))
 
 #endif // CHAIN_H

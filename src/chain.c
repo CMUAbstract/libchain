@@ -21,7 +21,7 @@ __nv chain_time_t volatile curtime = 0;
 /* To update the context, fill-in the unused one and flip the pointer to it */
 __nv context_t context_1 = {0};
 __nv context_t context_0 = {
-    .task = TASK_REF(_entry_task),
+    .task = &TASK_REF(_entry_task),
     .time = 0,
     .self_chan_idx = 0,
     .next_ctx = &context_1,
