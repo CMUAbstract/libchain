@@ -124,7 +124,8 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
     var_meta_t *var;
     var_meta_t *latest_var = NULL;
 
-    LIBCHAIN_PRINTF("[%u] in: '%s':", curctx->time, field_name);
+    LIBCHAIN_PRINTF("[%u] %s: in: '%s':", curctx->time,
+                    curctx->task->name, field_name);
 
     va_start(ap, count);
 
@@ -240,8 +241,8 @@ void chan_out(const char *field_name, const void *value,
         }
 
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
-        LIBCHAIN_PRINTF("[%u] out: '%s': %s -> %s:%c: ",
-               curctx->time, field_name,
+        LIBCHAIN_PRINTF("[%u] %s: out: '%s': %s -> %s:%c: ",
+               curctx->time, curctx->task->name, field_name,
                chan_meta->diag.source_name, chan_meta->diag.dest_name, curidx);
 
         for (int i = 0; i < var_size - sizeof(var_meta_t); ++i)

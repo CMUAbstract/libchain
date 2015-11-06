@@ -6,6 +6,7 @@
 
 #include <libmsp/mem.h>
 
+#define TASK_NAME_SIZE 32
 #define CHAN_NAME_SIZE 32
 
 typedef void (task_func_t)(void);
@@ -25,6 +26,7 @@ typedef struct {
     task_func_t *func;
     task_mask_t mask;
     task_idx_t idx;
+    char name[TASK_NAME_SIZE];
 } task_t;
 
 // TODO: include diag fields only when diagnostics are enabled
@@ -124,7 +126,7 @@ extern context_t * volatile curctx;
  */
 #define TASK(idx, func) \
     void func(); \
-    const task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx }; \
+    const task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, #func }; \
 
 #define TASK_REF(func) TASK_SYM_NAME(func)
 
