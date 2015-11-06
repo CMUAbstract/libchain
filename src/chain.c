@@ -158,9 +158,10 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
 #endif
         }
 
-        LIBCHAIN_PRINTF(" {%u} %s->%s:%c [%u],", i,
+        LIBCHAIN_PRINTF(" {%u} %s->%s:%c c%04x:off%u:v%04x [%u],", i,
                chan_meta->diag.source_name, chan_meta->diag.dest_name,
-               curidx, var->timestamp);
+               curidx, (uint16_t)chan, field_offset,
+               (uint16_t)var, var->timestamp);
 
         if (var->timestamp > latest_update) {
             latest_update = var->timestamp;
@@ -241,9 +242,10 @@ void chan_out(const char *field_name, const void *value,
         }
 
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
-        LIBCHAIN_PRINTF("[%u] %s: out: '%s': %s -> %s:%c: ",
+        LIBCHAIN_PRINTF("[%u] %s: out: '%s': %s -> %s:%c c%04x:off%u:v%04x: ",
                curctx->time, curctx->task->name, field_name,
-               chan_meta->diag.source_name, chan_meta->diag.dest_name, curidx);
+               chan_meta->diag.source_name, chan_meta->diag.dest_name,
+               curidx, (uint16_t)chan, field_offset, (uint16_t)var);
 
         for (int i = 0; i < var_size - sizeof(var_meta_t); ++i)
             LIBCHAIN_PRINTF("%02x ", *((uint8_t *)value + i));
