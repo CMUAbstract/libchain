@@ -216,7 +216,6 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
 }
 
 /** @brief Write a value to a field in a channel
- *  @param curtask       pointer to the currently executing task
  *  @param field_name    string name of the field, used for diagnostics
  *  @param value         pointer to value data
  *  @param var_size      size of the 'variable' type (var_meta_t + value type)
