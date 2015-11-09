@@ -33,13 +33,30 @@ __nv context_t * volatile curctx = &context_0;
 __nv volatile unsigned _numBoots = 0;
 
 /**
+ * @brief Function to be invoked at the beginning of every task
+ */
+void task_prologue()
+{
+    task_t *curtask = curctx->task;
+
+    // Initialize the 'next' self chan mask buffer. The value in this
+    // 'next' buffer is the updated but uncommitted value, to be
+    // committed on the next task transition.
+    unsigned current_mask_idx = (curctx->self_chan_idx & curtask->mask) ? 1 : 0;
+    unsigned next_mask_idx = current_mask_idx ^ 0x1;
+
+    curtask->self_chan_mask[next_mask_idx] =
+        curtask->self_chan_mask[current_mask_idx];
+}
+
+/**
  * @brief Transfer control to the given task
  * @details Finalize the current task and jump to the given task.
  *          This function does not return.
  *
  *  TODO: mark this function as bare (i.e. no prologue) for efficiency
  */
-void transition_to(const task_t *next_task)
+void transition_to(task_t *next_task)
 {
     context_t *next_ctx; // this should be in a register for efficiency
                          // (if we really care, write this func in asm)
@@ -141,9 +158,15 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
         switch (chan_meta->type) {
             case CHAN_TYPE_SELF: {
                 self_field_meta_t *self_field = (self_field_meta_t *)field;
+
+                task_t *curtask = curctx->task;
+                unsigned mask_idx = (curctx->self_chan_idx & curtask->mask) ? 1 : 0;
+                field_mask_t field_mask = curtask->self_chan_mask[mask_idx];
+                unsigned var_idx = (field_mask & self_field->mask) ? 1 : 0;
+
                 var = (var_meta_t *)(field +
                         offsetof(SELF_FIELD_TYPE(void_type_t), var) +
-                        var_size * self_field->curidx);
+                        var_size * var_idx);
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
                 curidx = '0' + self_field->curidx;
 #endif
@@ -193,9 +216,10 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
 }
 
 /** @brief Write a value to a field in a channel
+ *  @param curtask       pointer to the currently executing task
  *  @param field_name    string name of the field, used for diagnostics
  *  @param value         pointer to value data
- *  @param var_size     size of the 'variable' type (var_meta_t + value type)
+ *  @param var_size      size of the 'variable' type (var_meta_t + value type)
  *  @param count         number of output channels
  *  @param ...           channel ptr, field offset in corresponding message type
  */
@@ -223,12 +247,26 @@ void chan_out(const char *field_name, const void *value,
         switch (chan_meta->type) {
             case CHAN_TYPE_SELF: {
                 self_field_meta_t *self_field = (self_field_meta_t *)field;
-                self_field->curidx ^= 0x1;
+
+                // "Enqueue" switch to the other buffer on next transition
+                task_t *curtask = curctx->task;
+                unsigned current_mask_idx =
+                    curctx->self_chan_idx & curtask->mask ? 1 : 0;
+                unsigned next_mask_idx = current_mask_idx ^ 0x1;
+
+                field_mask_t current_mask = curtask->self_chan_mask[current_mask_idx];
+                field_mask_t next_mask = current_mask ^ self_field->mask;
+
+                curtask->self_chan_mask[next_mask_idx] = next_mask;
+
+                unsigned next_var_idx = next_mask & self_field->mask ? 1 : 0;
+
                 var = (var_meta_t *)(field +
                         offsetof(SELF_FIELD_TYPE(void_type_t), var) +
-                        var_size * self_field->curidx);
+                        var_size * next_var_idx);
+
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
-                curidx = '0' + self_field->curidx;
+                curidx = '0' + next_self_chan_field_idx;
 #endif
                 break;
             }

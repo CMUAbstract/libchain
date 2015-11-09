@@ -12,6 +12,7 @@
 typedef void (task_func_t)(void);
 typedef unsigned chain_time_t;
 typedef uint32_t task_mask_t;
+typedef uint16_t field_mask_t;
 typedef unsigned task_idx_t;
 
 typedef enum {
@@ -26,6 +27,7 @@ typedef struct {
     task_func_t *func;
     task_mask_t mask;
     task_idx_t idx;
+    field_mask_t self_chan_mask[2]; // double-buffered
     char name[TASK_NAME_SIZE];
 } task_t;
 
@@ -45,7 +47,7 @@ typedef struct _var_meta_t {
 } var_meta_t;
 
 typedef struct _self_field_meta_t {
-    uint8_t curidx;
+    field_mask_t mask;
 } self_field_meta_t;
 
 #define VAR_TYPE(type) \
@@ -92,7 +94,7 @@ typedef struct _self_field_meta_t {
 /** @brief Execution context */
 typedef struct _context_t {
     /** @brief Pointer to the most recently started but not finished task */
-    const task_t *task;
+    task_t *task;
 
     /** @brief Logical time, ticks at task boundaries */
     chain_time_t time;
@@ -126,7 +128,7 @@ extern context_t * volatile curctx;
  */
 #define TASK(idx, func) \
     void func(); \
-    const task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, #func }; \
+    task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, {0}, #func }; \
 
 #define TASK_REF(func) &TASK_SYM_NAME(func)
 
@@ -148,7 +150,7 @@ extern void init();
  *        not constrained, and the whole thing is less magical when reading app
  *        code, but slightly more verbose.
  */
-extern const task_t TASK_SYM_NAME(_entry_task);
+extern task_t TASK_SYM_NAME(_entry_task);
 
 /** @brief Declare the first task of the application
  *  @details This macro defines a function with a special name that is
@@ -177,10 +179,44 @@ void _init();
  */
 #define INIT_FUNC(func) void _init() { func(); }
 
-void transition_to(const task_t *task);
+void task_prologue();
+void transition_to(task_t *task);
 void *chan_in(const char *field_name, size_t var_size, int count, ...);
 void chan_out(const char *field_name, const void *value,
               size_t var_size, int count, ...);
+
+#define FIELD_COUNT_INNER(type) NUM_FIELDS_ ## type
+#define FIELD_COUNT(type) FIELD_COUNT_INNER(type)
+
+/** @brief Initializes the field mask that identifies the fields in a channel
+ *  @details The user needs to only define NUM_FIELDS_<chan_msg_type> for
+ *           each self-channel type. The rest happens automatically.
+ */
+#define SELF_FIELD_INITIALIZER(i) { { (0x1 << i) } }
+
+#define SELF_FIELDS_INITIALIZER_1() \
+    SELF_FIELD_INITIALIZER(0)
+#define SELF_FIELDS_INITIALIZER_2() \
+    SELF_FIELD_INITIALIZER(0), \
+    SELF_FIELD_INITIALIZER(1)
+#define SELF_FIELDS_INITIALIZER_3() \
+    SELF_FIELD_INITIALIZER(0), \
+    SELF_FIELD_INITIALIZER(1), \
+    SELF_FIELD_INITIALIZER(2)
+#define SELF_FIELDS_INITIALIZER_4() \
+    SELF_FIELD_INITIALIZER(0), \
+    SELF_FIELD_INITIALIZER(1), \
+    SELF_FIELD_INITIALIZER(2), \
+    SELF_FIELD_INITIALIZER(3),
+
+#define SELF_FIELDS_INITIALIZER_WITH_COUNT_INNER(count) \
+    SELF_FIELDS_INITIALIZER_ ## count()
+
+#define SELF_FIELDS_INITIALIZER_WITH_COUNT(count) \
+    SELF_FIELDS_INITIALIZER_WITH_COUNT_INNER(count)
+
+#define SELF_FIELDS_INITIALIZER(type) \
+    SELF_FIELDS_INITIALIZER_WITH_COUNT(FIELD_COUNT(type))
 
 #define CHANNEL(src, dest, type) \
     __nv CH_TYPE(src, dest, type) _ch_ ## src ## _ ## dest = \
@@ -188,7 +224,8 @@ void chan_out(const char *field_name, const void *value,
 
 #define SELF_CHANNEL(task, type) \
     __nv CH_TYPE(task, task, type) _ch_ ## task ## _ ## task = \
-        { { CHAN_TYPE_SELF, { #task, #task } } }
+        { { CHAN_TYPE_SELF, { #task, #task } }, \
+          { SELF_FIELDS_INITIALIZER(type) } }
 
 /** @brief Declare a channel for passing arguments to a callable task
  *  @details Callers would output values into this channels before
