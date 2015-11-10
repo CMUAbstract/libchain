@@ -6,8 +6,12 @@
 
 #include <libmsp/mem.h>
 
+#include "repeat.h"
+
 #define TASK_NAME_SIZE 32
 #define CHAN_NAME_SIZE 32
+
+#define MAX_DIRTY_SELF_FIELDS 4
 
 typedef void (task_func_t)(void);
 typedef unsigned chain_time_t;
@@ -22,14 +26,6 @@ typedef enum {
     CHAN_TYPE_CALL,
     CHAN_TYPE_RETURN,
 } chan_type_t;
-
-typedef struct {
-    task_func_t *func;
-    task_mask_t mask;
-    task_idx_t idx;
-    field_mask_t self_chan_mask[2]; // double-buffered
-    char name[TASK_NAME_SIZE];
-} task_t;
 
 // TODO: include diag fields only when diagnostics are enabled
 typedef struct _chan_diag_t {
@@ -47,8 +43,36 @@ typedef struct _var_meta_t {
 } var_meta_t;
 
 typedef struct _self_field_meta_t {
-    field_mask_t mask;
+    // Single word (two bytes) value that contains
+    // * bit 0: dirty bit (i.e. swap needed)
+    // * bit 1: index of the current var buffer from the double buffer pair
+    // * bit 5: index of the next var buffer from the double buffer pair
+    // This layout is so that we can swap the bytes to flip between buffers and
+    // at the same time (atomically) clear the dirty bit.  The dirty bit must
+    // be reset in bit 4 before the next swap.
+    unsigned idx_pair;
 } self_field_meta_t;
+
+typedef struct {
+    task_func_t *func;
+    task_mask_t mask;
+    task_idx_t idx;
+
+    // Dirty self channel fields are ones to which there had been a
+    // chan_out. The out value is "staged" in the alternate buffer of
+    // the self-channel double-buffer pair for each field. On transition,
+    // the buffer index is flipped for dirty fields.
+    self_field_meta_t *dirty_self_fields[MAX_DIRTY_SELF_FIELDS];
+    volatile unsigned num_dirty_self_fields;
+    volatile chain_time_t last_execute_time;
+
+    char name[TASK_NAME_SIZE];
+} task_t;
+
+#define SELF_CHAN_IDX_BIT_DIRTY_CURRENT  0x0001U
+#define SELF_CHAN_IDX_BIT_DIRTY_NEXT     0x0100U
+#define SELF_CHAN_IDX_BIT_CURRENT        0x0002U
+#define SELF_CHAN_IDX_BIT_NEXT           0x0200U
 
 #define VAR_TYPE(type) \
     struct { \
@@ -128,7 +152,7 @@ extern context_t * volatile curctx;
  */
 #define TASK(idx, func) \
     void func(); \
-    task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, {0}, #func }; \
+    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, {0}, 0, 0, #func }; \
 
 #define TASK_REF(func) &TASK_SYM_NAME(func)
 
@@ -188,35 +212,22 @@ void chan_out(const char *field_name, const void *value,
 #define FIELD_COUNT_INNER(type) NUM_FIELDS_ ## type
 #define FIELD_COUNT(type) FIELD_COUNT_INNER(type)
 
-/** @brief Initializes the field mask that identifies the fields in a channel
- *  @details The user needs to only define NUM_FIELDS_<chan_msg_type> for
- *           each self-channel type. The rest happens automatically.
+/** @brief Initializers for the fields in a channel
+ *  @details The user defines a FILED_INIT_<chan_msg_type> macro that,
+ *           in braces contains comma separated list of initializers
+ *           one for each field, in order of the declaration of the fields.
+ *           Each initializer is either
+ *             * SELF_FIELD_INITIALIZER, or
+ *             * SELF_FIELD_ARRAY_INITIALIZER(count) [only count=2^n supported]
  */
-#define SELF_FIELD_INITIALIZER(i) { { (0x1 << i) } }
 
-#define SELF_FIELDS_INITIALIZER_1() \
-    SELF_FIELD_INITIALIZER(0)
-#define SELF_FIELDS_INITIALIZER_2() \
-    SELF_FIELD_INITIALIZER(0), \
-    SELF_FIELD_INITIALIZER(1)
-#define SELF_FIELDS_INITIALIZER_3() \
-    SELF_FIELD_INITIALIZER(0), \
-    SELF_FIELD_INITIALIZER(1), \
-    SELF_FIELD_INITIALIZER(2)
-#define SELF_FIELDS_INITIALIZER_4() \
-    SELF_FIELD_INITIALIZER(0), \
-    SELF_FIELD_INITIALIZER(1), \
-    SELF_FIELD_INITIALIZER(2), \
-    SELF_FIELD_INITIALIZER(3),
+#define SELF_FIELD_META_INITIALIZER { (SELF_CHAN_IDX_BIT_NEXT) }
+#define SELF_FIELD_INITIALIZER { SELF_FIELD_META_INITIALIZER }
 
-#define SELF_FIELDS_INITIALIZER_WITH_COUNT_INNER(count) \
-    SELF_FIELDS_INITIALIZER_ ## count()
+#define SELF_FIELD_ARRAY_INITIALIZER(count) { REPEAT(count, SELF_FIELD_INITIALIZER) }
 
-#define SELF_FIELDS_INITIALIZER_WITH_COUNT(count) \
-    SELF_FIELDS_INITIALIZER_WITH_COUNT_INNER(count)
-
-#define SELF_FIELDS_INITIALIZER(type) \
-    SELF_FIELDS_INITIALIZER_WITH_COUNT(FIELD_COUNT(type))
+#define SELF_FIELDS_INITIALIZER_INNER(type) FIELD_INIT_ ## type
+#define SELF_FIELDS_INITIALIZER(type) SELF_FIELDS_INITIALIZER_INNER(type)
 
 #define CHANNEL(src, dest, type) \
     __nv CH_TYPE(src, dest, type) _ch_ ## src ## _ ## dest = \
@@ -224,8 +235,7 @@ void chan_out(const char *field_name, const void *value,
 
 #define SELF_CHANNEL(task, type) \
     __nv CH_TYPE(task, task, type) _ch_ ## task ## _ ## task = \
-        { { CHAN_TYPE_SELF, { #task, #task } }, \
-          { SELF_FIELDS_INITIALIZER(type) } }
+        { { CHAN_TYPE_SELF, { #task, #task } }, SELF_FIELDS_INITIALIZER(type) }
 
 /** @brief Declare a channel for passing arguments to a callable task
  *  @details Callers would output values into this channels before

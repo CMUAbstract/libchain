@@ -39,14 +39,38 @@ void task_prologue()
 {
     task_t *curtask = curctx->task;
 
-    // Initialize the 'next' self chan mask buffer. The value in this
-    // 'next' buffer is the updated but uncommitted value, to be
-    // committed on the next task transition.
-    unsigned current_mask_idx = (curctx->self_chan_idx & curtask->mask) ? 1 : 0;
-    unsigned next_mask_idx = current_mask_idx ^ 0x1;
+    // Swaps of the self-channel buffer happen on transitions, not restarts.
+    // We detect transitions by comparing the current time with a timestamp.
+    if (curctx->time != curtask->last_execute_time) {
 
-    curtask->self_chan_mask[next_mask_idx] =
-        curtask->self_chan_mask[current_mask_idx];
+        // Minimize FRAM reads
+        self_field_meta_t **dirty_self_fields = curtask->dirty_self_fields;
+
+        int i;
+
+        // It is safe to repeat the loop for the same element, because the swap
+        // operation clears the dirty bit. We only need to be a little bit careful
+        // to decrement the count strictly after the swap.
+        while ((i = curtask->num_dirty_self_fields) > 0) {
+            self_field_meta_t *self_field = dirty_self_fields[--i];
+
+            if (self_field->idx_pair & SELF_CHAN_IDX_BIT_DIRTY_CURRENT) {
+                // Atomically: swap AND clear the dirty bit (by "moving" it over to MSB)
+                __asm__ volatile (
+                    "SWPB %[idx_pair]\n"
+                    : [idx_pair]  "=m" (self_field->idx_pair)
+                );
+            }
+
+            // Trade-off: either we do one FRAM write after each element, or
+            // we do only one write at the end (set to 0) but also not make
+            // forward progress if we reboot in the middle of this loop.
+            // We opt for making progress.
+            curtask->num_dirty_self_fields = i;
+        }
+
+        curtask->last_execute_time = curctx->time;
+    }
 }
 
 /**
@@ -159,14 +183,12 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
             case CHAN_TYPE_SELF: {
                 self_field_meta_t *self_field = (self_field_meta_t *)field;
 
-                task_t *curtask = curctx->task;
-                unsigned mask_idx = (curctx->self_chan_idx & curtask->mask) ? 1 : 0;
-                field_mask_t field_mask = curtask->self_chan_mask[mask_idx];
-                unsigned var_idx = (field_mask & self_field->mask) ? 1 : 0;
+                unsigned var_offset =
+                    (self_field->idx_pair & SELF_CHAN_IDX_BIT_CURRENT) ? var_size : 0;
 
                 var = (var_meta_t *)(field +
-                        offsetof(SELF_FIELD_TYPE(void_type_t), var) +
-                        var_size * var_idx);
+                        offsetof(SELF_FIELD_TYPE(void_type_t), var) + var_offset);
+
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
                 curidx = '0' + self_field->curidx;
 #endif
@@ -246,23 +268,28 @@ void chan_out(const char *field_name, const void *value,
         switch (chan_meta->type) {
             case CHAN_TYPE_SELF: {
                 self_field_meta_t *self_field = (self_field_meta_t *)field;
-
-                // "Enqueue" switch to the other buffer on next transition
                 task_t *curtask = curctx->task;
-                unsigned current_mask_idx =
-                    curctx->self_chan_idx & curtask->mask ? 1 : 0;
-                unsigned next_mask_idx = current_mask_idx ^ 0x1;
 
-                field_mask_t current_mask = curtask->self_chan_mask[current_mask_idx];
-                field_mask_t next_mask = current_mask ^ self_field->mask;
-
-                curtask->self_chan_mask[next_mask_idx] = next_mask;
-
-                unsigned next_var_idx = next_mask & self_field->mask ? 1 : 0;
+                unsigned var_offset =
+                    (self_field->idx_pair & SELF_CHAN_IDX_BIT_NEXT) ? var_size : 0;
 
                 var = (var_meta_t *)(field +
-                        offsetof(SELF_FIELD_TYPE(void_type_t), var) +
-                        var_size * next_var_idx);
+                        offsetof(SELF_FIELD_TYPE(void_type_t), var) + var_offset);
+
+                // "Enqueue" the buffer index to be flipped on next transition:
+                //   (1) initialize the dirty bit for next swap, or, in other words,
+                //       "finalize" clearing of the dirty bit from the previous
+                //       swap, since the swap "clears" the dirty bit by moving
+                //       it over from LSB to MSB.
+                //   (2) mark the index dirty, which enques the swap
+                //   (3) add the field to the list of dirty fields
+                //
+                // NOTE: these do not have to be atomic, and can be repeated any
+                // number of times (idempotent). Counter of the dirty list is
+                // reset on in task prologue.
+                self_field->idx_pair &= ~(SELF_CHAN_IDX_BIT_DIRTY_NEXT);
+                self_field->idx_pair |= SELF_CHAN_IDX_BIT_DIRTY_CURRENT;
+                curtask->dirty_self_fields[curtask->num_dirty_self_fields++] = self_field;
 
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
                 curidx = '0' + next_self_chan_field_idx;
