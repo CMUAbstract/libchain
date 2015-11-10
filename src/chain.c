@@ -23,7 +23,6 @@ __nv context_t context_1 = {0};
 __nv context_t context_0 = {
     .task = TASK_REF(_entry_task),
     .time = 0,
-    .self_chan_idx = 0,
     .next_ctx = &context_1,
 };
 
@@ -124,7 +123,6 @@ void transition_to(task_t *next_task)
     next_ctx = curctx->next_ctx;
     next_ctx->task = next_task;
     next_ctx->time = curctx->time + 1;
-    next_ctx->self_chan_idx = curctx->self_chan_idx ^ curctx->task->mask;
 
     next_ctx->next_ctx = curctx;
     curctx = next_ctx;

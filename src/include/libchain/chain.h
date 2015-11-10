@@ -123,9 +123,6 @@ typedef struct _context_t {
     /** @brief Logical time, ticks at task boundaries */
     chain_time_t time;
 
-    /** @brief Bitmask that maps task index to its self-channel buffer index */
-    task_mask_t self_chan_idx;
-
     // TODO: move this to top, just feels cleaner
     struct _context_t *next_ctx;
 } context_t;
