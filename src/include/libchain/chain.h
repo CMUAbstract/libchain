@@ -64,7 +64,8 @@ typedef struct {
     // the buffer index is flipped for dirty fields.
     self_field_meta_t *dirty_self_fields[MAX_DIRTY_SELF_FIELDS];
     volatile unsigned num_dirty_self_fields;
-    volatile chain_time_t last_execute_time;
+
+    volatile chain_time_t last_execute_time; // to execute prologue only once
 
     char name[TASK_NAME_SIZE];
 } task_t;
