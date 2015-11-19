@@ -127,6 +127,8 @@ void transition_to(task_t *next_task)
     next_ctx->next_ctx = curctx;
     curctx = next_ctx;
 
+    task_prologue();
+
     __asm__ volatile ( // volatile because output operands unused by C
         "mov #0x2400, r1\n"
         "br %[ntask]\n"
@@ -334,6 +336,8 @@ int main() {
     //       prologue discussed in chain.h is implemented (requires compiler
     //       support)
     // transition_to(curtask);
+
+    task_prologue();
 
     __asm__ volatile ( // volatile because output operands unused by C
         "br %[nt]\n"
