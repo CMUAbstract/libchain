@@ -69,6 +69,13 @@ void task_prologue()
         }
 
         curtask->last_execute_time = curctx->time;
+    } else {
+        // In this case, swapping that needed to take place after the last
+        // transition has run to completion (even if it was restarted) [because
+        // the last_execute_time was set]. We get into this clause only
+        // because of a restart. We must clear any state that the incomplete
+        // execution of the task might have changed.
+        curtask->num_dirty_self_fields = 0;
     }
 }
 
