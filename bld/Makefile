@@ -9,7 +9,7 @@ DEPS += \
 override SRC_ROOT = ../../src
 
 CFLAGS += \
-	-I $(SRC_ROOT)/include/libchain \
+	-I $(SRC_ROOT)/include/$(LIB) \
 
 ifeq ($(LIBCHAIN_ENABLE_DIAGNOSTICS),1)
 CFLAGS += -DLIBCHAIN_ENABLE_DIAGNOSTICS
