@@ -3,14 +3,14 @@ LIB = libchain
 OBJECTS = \
 	chain.o \
 
-DEPS += \
+override DEPS += \
 	libmsp \
 
 override SRC_ROOT = ../../src
 
-CFLAGS += \
+override CFLAGS += \
 	-I $(SRC_ROOT)/include/$(LIB) \
 
 ifeq ($(LIBCHAIN_ENABLE_DIAGNOSTICS),1)
-CFLAGS += -DLIBCHAIN_ENABLE_DIAGNOSTICS
+override CFLAGS += -DLIBCHAIN_ENABLE_DIAGNOSTICS
 endif
