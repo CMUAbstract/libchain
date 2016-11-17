@@ -466,11 +466,11 @@ The Cuckoo Filter application populates a cuckoo filter data structure with
 pseudo-random keys and quieries it to determine appoximate set membership.
 
    cd ~/src/apps
-   git clone -b oospla16-artifact https://github.com/CMUAbstract/app-cuckoo-chain.git
+   git clone -b oopsla16-artifact https://github.com/CMUAbstract/app-cuckoo-chain.git
    cd app-cuckoo-chain && cd bld/gcc && make
 
    cd ~/src/apps
-   git clone -b oospla16-artifact https://github.com/CMUAbstract/app-cuckoo-chkpt.git
+   git clone -b oopsla16-artifact https://github.com/CMUAbstract/app-cuckoo-chkpt.git
    cd app-cuckoo-chkpt/lib/bld
    cd gcc      && make && cd ..
    cd clang    && make && cd ..
@@ -492,11 +492,11 @@ The CEM application reads temperature samples from a sensor, compresses the
 data stream with LZW and outputs the compressed stream to EDB console.
 
    cd ~/src/apps
-   git clone -b oospla16-artifact https://github.com/CMUAbstract/app-temp-log-chain.git
+   git clone -b oopsla16-artifact https://github.com/CMUAbstract/app-temp-log-chain.git
    cd app-temp-log-chain && cd bld/gcc && make
 
    cd ~/src/apps
-   git clone -b oospla16-artifact https://github.com/CMUAbstract/app-temp-log-chkpt.git
+   git clone -b oopsla16-artifact https://github.com/CMUAbstract/app-temp-log-chkpt.git
    cd app-temp-log-chkpt/lib/bld
    cd gcc      && make && cd ..
    cd clang    && make && cd ..
@@ -519,11 +519,11 @@ pre-trained model. At the end of set number of samples, aggregate statistics
 about the classes are reported via the EDB console.
 
    cd ~/src/apps
-   git clone -b oospla16-artifact https://github.com/CMUAbstract/app-activity-chain.git
+   git clone -b oopsla16-artifact https://github.com/CMUAbstract/app-activity-chain.git
    cd app-activity-chain && cd bld/gcc && make
 
    cd ~/src/apps
-   git clone -b oospla16-artifact https://github.com/CMUAbstract/app-activity-chkpt.git
+   git clone -b oopsla16-artifact https://github.com/CMUAbstract/app-activity-chkpt.git
    cd app-activity-chkpt/bld
    cd gcc      && make && cd ..
    cd clang    && make && cd ..
@@ -555,12 +555,12 @@ image):
 To build the applicaion against the earlier `libchain` version, set 
 
      cd ~/src/apps
-     git clone -b oospla16-artifact https://github.com/CMUAbstract/app-rsa-chain.git
+     git clone -b oopsla16-artifact https://github.com/CMUAbstract/app-rsa-chain.git
      cd app-rsa-chain/bld/gcc
      make LIBCHAIN_ROOT=$DEV_ROOT/libchain-v0.1
   
      cd ~/src/apps
-     git clone -b oospla16-artifact https://github.com/CMUAbstract/app-rsa-chkpt.git
+     git clone -b oopsla16-artifact https://github.com/CMUAbstract/app-rsa-chkpt.git
      cd app-rsa-chkpt/bld
      cd gcc      && make && cd ..
      cd clang    && make && cd ..
