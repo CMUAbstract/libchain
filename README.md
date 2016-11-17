@@ -141,7 +141,7 @@ dependent libraries.
 This artifact uses an older version of Maker, in which libraries need to be
 built manually.
 
-    git clone -b oopsla16-artifact https://github.com/URL-HIDDEN/maker
+    git clone -b oopsla16-artifact https://github.com/CMUAbstract/maker
 
 Edit path to TI MSP430 GCC Toolchain in `maker/Makefile.env`:
 
@@ -196,7 +196,7 @@ microcontroller and using the peripherals on the WISP platform.
 
 We use a forked version with bug fixes and other build-related patches.
 
-    git clone -b oopsla16-artifact https://github.com/URL-HIDDEN/wisp5.git
+    git clone -b oopsla16-artifact https://github.com/CMUAbstract/wisp5.git
     cd wisp5/CCS/wisp-base/gcc
     make
 
@@ -214,7 +214,7 @@ forward output to the host workstation from the target, while it runs on
 intermittent (RF) energy.
  
     cd ~/src
-    git clone -b oopsla16-artifact git@github.com:URL-HIDDEN/libedb.git
+    git clone -b oopsla16-artifact git@github.com:CMUAbstract/libedb.git
     cd libedb/gcc
     make
 
@@ -240,7 +240,7 @@ necessary builds of the libraries.
 ### libmsp
 
     cd ~/src
-    git clone -b oopsla16-artifact https://github.com/URL-HIDDEN/libmsp.git
+    git clone -b oopsla16-artifact https://github.com/CMUAbstract/libmsp.git
 
     cd bld/gcc && make
 
@@ -250,13 +250,13 @@ necessary builds of the libraries.
 ## libmspprintf
 
     cd ~/src
-    git clone -b oopsla16-artifact https://github.com/URL-HIDDEN/libmspprintf.git
+    git clone -b oopsla16-artifact https://github.com/CMUAbstract/libmspprintf.git
     cd bld/gcc && make
 
 ## libmspconsole
 
     cd ~/src
-    git clone -b oopsla16-artifact https://github.com/URL-HIDDEN/libmspconsole.git
+    git clone -b oopsla16-artifact https://github.com/CMUAbstract/libmspconsole.git
     cd bld/gcc && make 
 
 ## libio
@@ -264,12 +264,12 @@ necessary builds of the libraries.
 The `libio` library only contains headers, so there is nothing to build.
 
     cd ~/src
-    git clone -b oopsla16-artifact https://github.com/URL-HIDDEN/libio.git
+    git clone -b oopsla16-artifact https://github.com/CMUAbstract/libio.git
 
 ## libmspmath
 
     cd ~/src
-    git clone -b oopsla16-artifact https://github.com/URL-HIDDEN/libmspmath.git
+    git clone -b oopsla16-artifact https://github.com/CMUAbstract/libmspmath.git
     cd bld/gcc && make
 
 ## libmspbuiltins
@@ -279,7 +279,7 @@ builds of the application. (In GCC application builds, this library may be still
 included for uniformity, but in that case it is effectively empty.)
 
     cd ~/src
-    git clone -b oopsla16-artifact https://github.com/URL-HIDDEN/libmspbuiltins.git
+    git clone -b oopsla16-artifact https://github.com/CMUAbstract/libmspbuiltins.git
     cd bld/gcc && make
 
 Chain Runtime
@@ -289,7 +289,7 @@ The Chain runtime consists of one library: `libchain`. In this section we build
 the library. Any application that wishes to use the Chain abstractions needs to
 include the headers from this library and link against the library binary.
 
-   git clone -b oopsla16-artifact https://github.com/URL-HIDDEN/libchain.git
+   git clone -b oopsla16-artifact https://github.com/CMUAbstract/libchain.git
    cd bld/gcc
    make
 
@@ -324,7 +324,7 @@ The following steps in this section fetch and build Mementos. This needs to be
 done only once -- multiple applications use the artifacts built here.
 
     cd ~/src
-	git clone -b oopsla16-artifact https://github.com/URL-HIDDEN/mementos.git
+	git clone -b oopsla16-artifact https://github.com/CMUAbstract/mementos.git
 
 ### Runtime libs
 
@@ -369,7 +369,7 @@ The following steps fetch and build DINO. This needs to be done only once --
 multiple applications use the artifacts built here.
 
     cd ~/src
-	git clone -b oopsla16-artifact https://github.com/URL-HIDDEN/dino.git
+	git clone -b oopsla16-artifact https://github.com/CMUAbstract/dino.git
 
     cd ~/dino/DinoRuntime
 	export LLVM_ROOT=/opt/llvm/llvm-install
@@ -457,7 +457,7 @@ The LED Blinker is a simple application that demonstrates basic use of tasks
 and channels. The source tree of this application code can be copied and
 modified to quickly create a custom application using Chain.
 
-    git clone -b oopsla16-artifact https://github.com/URL-HIDDEN/app-blinker-chain.git
+    git clone -b oopsla16-artifact https://github.com/CMUAbstract/app-blinker-chain.git
     cd bld/gcc && make
 
 ## Cuckoo Filter
@@ -466,11 +466,11 @@ The Cuckoo Filter application populates a cuckoo filter data structure with
 pseudo-random keys and quieries it to determine appoximate set membership.
 
    cd ~/src/apps
-   git clone -b oospla16-artifact https://github.com/URL-HIDDEN/app-cuckoo-chain.git
+   git clone -b oospla16-artifact https://github.com/CMUAbstract/app-cuckoo-chain.git
    cd app-cuckoo-chain && cd bld/gcc && make
 
    cd ~/src/apps
-   git clone -b oospla16-artifact https://github.com/URL-HIDDEN/app-cuckoo-chkpt.git
+   git clone -b oospla16-artifact https://github.com/CMUAbstract/app-cuckoo-chkpt.git
    cd app-cuckoo-chkpt/lib/bld
    cd gcc      && make && cd ..
    cd clang    && make && cd ..
@@ -492,11 +492,11 @@ The CEM application reads temperature samples from a sensor, compresses the
 data stream with LZW and outputs the compressed stream to EDB console.
 
    cd ~/src/apps
-   git clone -b oospla16-artifact https://github.com/URL-HIDDEN/app-temp-log-chain.git
+   git clone -b oospla16-artifact https://github.com/CMUAbstract/app-temp-log-chain.git
    cd app-temp-log-chain && cd bld/gcc && make
 
    cd ~/src/apps
-   git clone -b oospla16-artifact https://github.com/URL-HIDDEN/app-temp-log-chkpt.git
+   git clone -b oospla16-artifact https://github.com/CMUAbstract/app-temp-log-chkpt.git
    cd app-temp-log-chkpt/lib/bld
    cd gcc      && make && cd ..
    cd clang    && make && cd ..
@@ -519,11 +519,11 @@ pre-trained model. At the end of set number of samples, aggregate statistics
 about the classes are reported via the EDB console.
 
    cd ~/src/apps
-   git clone -b oospla16-artifact https://github.com/URL-HIDDEN/app-activity-chain.git
+   git clone -b oospla16-artifact https://github.com/CMUAbstract/app-activity-chain.git
    cd app-activity-chain && cd bld/gcc && make
 
    cd ~/src/apps
-   git clone -b oospla16-artifact https://github.com/URL-HIDDEN/app-activity-chkpt.git
+   git clone -b oospla16-artifact https://github.com/CMUAbstract/app-activity-chkpt.git
    cd app-activity-chkpt/bld
    cd gcc      && make && cd ..
    cd clang    && make && cd ..
@@ -548,19 +548,19 @@ of `libchain` into `~/src/libchain-v0.1` (already fetched and built in the VM
 image):
 
      cd ~/src
-     git clone -b oopsla16-artifact-v0.1 https://github.com/URL-HIDDEN/libchain.git libchain-v0.1
+     git clone -b oopsla16-artifact-v0.1 https://github.com/CMUAbstract/libchain.git libchain-v0.1
      cd libchain-v0.1 bld/gcc
      make
 
 To build the applicaion against the earlier `libchain` version, set 
 
      cd ~/src/apps
-     git clone -b oospla16-artifact https://github.com/URL-HIDDEN/app-rsa-chain.git
+     git clone -b oospla16-artifact https://github.com/CMUAbstract/app-rsa-chain.git
      cd app-rsa-chain/bld/gcc
      make LIBCHAIN_ROOT=$DEV_ROOT/libchain-v0.1
   
      cd ~/src/apps
-     git clone -b oospla16-artifact https://github.com/URL-HIDDEN/app-rsa-chkpt.git
+     git clone -b oospla16-artifact https://github.com/CMUAbstract/app-rsa-chkpt.git
      cd app-rsa-chkpt/bld
      cd gcc      && make && cd ..
      cd clang    && make && cd ..
