@@ -394,11 +394,16 @@ evaluated in the paper:
  * RSA: Data Encryption using RSA
  * AR: Activity Recognition using an accelerometer
 
-Each application has a dedicated repository for its implementation in Chain and
-a separate repository with its implementation in C. The latter is optionally
-compilable with checkpointing-based systems, Mementos or DINO. The names of the
-pairs of repositories for each application follow the patterns, `app-*-chain`
-and `app-*-chkpt`, respectively.
+[Several additional application
+examples](https://github.com/amjadmajid/chain_apps) in Chain have been
+generously contributed by [Amjad Majid](http://www.st.ewi.tudelft.nl/~amjad/)
+at Embedded Software group at [TU Delft](http://www.es.ewi.tudelft.nl).
+
+Each application in the above list has a dedicated repository for its
+implementation in Chain and a separate repository with its implementation in C.
+The latter is optionally compilable with checkpointing-based systems, Mementos
+or DINO. The names of the pairs of repositories for each application follow the
+patterns, `app-*-chain` and `app-*-chkpt`, respectively.
 
 In the virtual machine image applications have been cloned and built
 in `~/src/apps/*` directories.
