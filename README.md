@@ -36,13 +36,14 @@ The workflow in this guide consists of (1) installing third-party dependencies,
 (2) building auxiliary platform-support libraries, (3) building the Chain
 runtime, and (4) building the applications.  This guide describes exactly what
 it takes to set up a Chain development environment on any reasonable Linux
-machine (*sans* repository URLs -- see note below). To save the reviewer time,
-we already followed all the steps in this guide on a virtual machine (VM) and
-included the VM image with the artifact submission.  If you are using the VM,
-the Chain development environment is already built, set up, and ready to roll:
-you can skip directly to the section on building and re-building the
-applications, or perhaps, create your own, new Chain application based on the
-LED blinking application.  
+machine (tested on Arch Linux and users reported success on Ubuntu).
+
+To save the reviewer time, we already followed all the steps in this guide on a
+virtual machine (VM) and included the VM image with the artifact submission.
+If you are using the VM, the Chain development environment is already built,
+set up, and ready to roll: you can skip directly to the section on building and
+re-building the applications, or perhaps, create your own, new Chain
+application based on the LED blinking application.  
 
 The URLs of the source code repositories have been hidden in this guide, to
 keep the review blind. The URLs are still present in the VM image, because it
