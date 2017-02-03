@@ -7,20 +7,20 @@ Table of Contents
    * [Synopsis](#synopsis)
       * [Virtual Machine Image](#virtual-machine-image)
    * [Dependencies](#dependencies)
-         * [MSP430 Toolchain](#msp430-toolchain)
-         * [Maker](#maker)
-         * ['''OPTIONAL''': LLVM/Clang](#optional-llvmclang)
+      * [MSP430 Toolchain](#msp430-toolchain)
+      * [Maker](#maker)
+      * ['''OPTIONAL''': LLVM/Clang](#optional-llvmclang)
       * [Environment](#environment)
       * [Libraries](#libraries)
-      * [WISP base firmware library](#wisp-base-firmware-library)
-      * [Energy-Interference-free Debugger (EDB) and libedb](#energy-interference-free-debugger-edb-and-libedb)
-      * [Auxiliary libraries](#auxiliary-libraries)
-         * [libmsp](#libmsp)
-      * [libmspprintf](#libmspprintf)
-      * [libmspconsole](#libmspconsole)
-      * [libio](#libio)
-      * [libmspmath](#libmspmath)
-      * [libmspbuiltins](#libmspbuiltins)
+        * [WISP base firmware library](#wisp-base-firmware-library)
+        * [Energy-Interference-free Debugger (EDB) and libedb](#energy-interference-free-debugger-edb-and-libedb)
+        * [Auxiliary libraries](#auxiliary-libraries)
+           * [libmsp](#libmsp)
+           * [libmspprintf](#libmspprintf)
+           * [libmspconsole](#libmspconsole)
+           * [libio](#libio)
+           * [libmspmath](#libmspmath)
+           * [libmspbuiltins](#libmspbuiltins)
    * [Chain Runtime](#chain-runtime)
    * [Prior work (OPTIONAL)](#prior-work-optional)
       * [Mementos](#mementos)
@@ -157,7 +157,7 @@ or extend our applications.
 Dependencies
 ============
 
-### MSP430 Toolchain
+## MSP430 Toolchain
 
 TI MSP430 GCC Toolchain is the cross-compiler used to build executables for the
 MSP430 platform.
@@ -169,7 +169,7 @@ Upstream: http://www.ti.com/tool/msp430-gcc-opensource
 Arch Linux package (from AUR): `mspgcc-ti`, installed to `/opt/ti/mspgcc`
 
 
-### Maker
+## Maker
 
 The Maker tool is a custom package manager and builder for C code written in
 GNU Make. Maker makefiles are high level instructions that can specify
@@ -185,7 +185,7 @@ Edit path to TI MSP430 GCC Toolchain in `maker/Makefile.env`:
     TOOLCHAIN_ROOT ?= $(TI_ROOT)/mspgcc
 
 
-### '''OPTIONAL''': LLVM/Clang
+## '''OPTIONAL''': LLVM/Clang
 
 LLVM/Clang is a compiler with a MSP430 assembly backend, that relies on MSP430
 GCC Toolchain (see above) to compile the assembly into native object code.
@@ -284,32 +284,32 @@ necessary builds of the libraries.
     export LLVM_ROOT=/opt/llvm/llvm-install
     cd bld/clang && make
 
-## libmspprintf
+### libmspprintf
 
     cd ~/src
     git clone -b oopsla16-artifact https://github.com/CMUAbstract/libmspprintf.git
     cd bld/gcc && make
 
-## libmspconsole
+### libmspconsole
 
     cd ~/src
     git clone -b oopsla16-artifact https://github.com/CMUAbstract/libmspconsole.git
     cd bld/gcc && make 
 
-## libio
+### libio
 
 The `libio` library only contains headers, so there is nothing to build.
 
     cd ~/src
     git clone -b oopsla16-artifact https://github.com/CMUAbstract/libio.git
 
-## libmspmath
+### libmspmath
 
     cd ~/src
     git clone -b oopsla16-artifact https://github.com/CMUAbstract/libmspmath.git
     cd bld/gcc && make
 
-## libmspbuiltins
+### libmspbuiltins
 
 Note that `libmspbuiltins` is always built with GCC, but included in LLVM/Clang
 builds of the application. (In GCC application builds, this library may be still
