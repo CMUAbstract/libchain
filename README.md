@@ -1,6 +1,14 @@
 This document is a companion guide to the artifacts for OOSPLA 2016 paper #28:
 "Chain: Tasks and Channels for Reliable Intermittent Programs."
 
+**NOTE:** This library is packaged for
+[Maker](https://github.com/CMUAbstract/maker) build system, and is built
+automatically together with the dependent application.  Use the [LED
+blinker](https://github.com/CMUAbstract/app-blinker-chain) example application
+as a template to get started quickly.
+
+**NOTE:** The following guide is outdated.
+
 Table of Contents
 =================
 
