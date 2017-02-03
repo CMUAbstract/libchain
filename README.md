@@ -1,3 +1,39 @@
+This document is a companion guide to the artifacts for OOSPLA 2016 paper #28:
+"Chain: Tasks and Channels for Reliable Intermittent Programs."
+
+Table of Contents
+=================
+
+   * [Synopsis](#synopsis)
+      * [Virtual Machine Image](#virtual-machine-image)
+   * [Dependencies](#dependencies)
+         * [MSP430 Toolchain](#msp430-toolchain)
+         * [Maker](#maker)
+         * ['''OPTIONAL''': LLVM/Clang](#optional-llvmclang)
+      * [Environment](#environment)
+      * [Libraries](#libraries)
+      * [WISP base firmware library](#wisp-base-firmware-library)
+      * [Energy-Interference-free Debugger (EDB) and libedb](#energy-interference-free-debugger-edb-and-libedb)
+      * [Auxiliary libraries](#auxiliary-libraries)
+         * [libmsp](#libmsp)
+      * [libmspprintf](#libmspprintf)
+      * [libmspconsole](#libmspconsole)
+      * [libio](#libio)
+      * [libmspmath](#libmspmath)
+      * [libmspbuiltins](#libmspbuiltins)
+   * [Chain Runtime](#chain-runtime)
+   * [Prior work (OPTIONAL)](#prior-work-optional)
+      * [Mementos](#mementos)
+         * [Runtime libs](#runtime-libs)
+         * [LLVM passes](#llvm-passes)
+      * [DINO](#dino)
+   * [Applications](#applications)
+      * [LED Blinker / Template for Custom Applications](#led-blinker--template-for-custom-applications)
+      * [Cuckoo Filter](#cuckoo-filter)
+      * [Cold-Chain Equipment Monitoring](#cold-chain-equipment-monitoring)
+      * [AR](#ar)
+      * [RSA](#rsa)
+
 Synopsis
 ========
 
