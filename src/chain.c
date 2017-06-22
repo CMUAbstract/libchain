@@ -31,6 +31,10 @@ __nv context_t * volatile curctx = &context_0;
 // for internal instrumentation purposes
 __nv volatile unsigned _numBoots = 0;
 
+unsigned get_numBoots(void){
+  return _numBoots; 
+}
+
 /**
  * @brief Function to be invoked at the beginning of every task
  */
@@ -333,6 +337,11 @@ void chan_out(const char *field_name, const void *value,
 
 /** @brief Entry point upon reboot */
 int main() {
+    //#if BOARD == capybara 
+    #if 0 
+        _capybara_config_handler(); 
+    #endif
+
     _init();
 
     _numBoots++;
