@@ -20,6 +20,9 @@ typedef unsigned chain_time_t;
 typedef uint32_t task_mask_t;
 typedef uint16_t field_mask_t;
 typedef unsigned task_idx_t;
+typedef uint8_t cap_cfg_t; 
+typedef float pot_vthresh_t; 
+
 
 typedef enum {
     CHAN_TYPE_T2T,
@@ -59,10 +62,16 @@ typedef struct _self_field_meta_t {
     unsigned idx_pair;
 } self_field_meta_t;
 
+typedef struct _task_pcfg_t {
+    cap_cfg_t cap_cfg; 
+    pot_vthresh_t pot_vthresh; 
+} task_pcfg_t; 
+
 typedef struct {
     task_func_t *func;
     task_mask_t mask;
     task_idx_t idx;
+    task_pcfg_t pcfg; 
 
     // Dirty self channel fields are ones to which there had been a
     // chan_out. The out value is "staged" in the alternate buffer of
@@ -399,5 +408,12 @@ void chan_out(const char *field_name, const void *value,
  *  @param task     Name of the task function
  *  */
 #define TRANSITION_TO(task) transition_to(TASK_REF(task))
+
+/** @brief returns number of system reboots to user space
+ *  @param none
+ *  @returns _numBoots
+ */
+
+unsigned get_numBoots(void); 
 
 #endif // CHAIN_H
