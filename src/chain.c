@@ -147,10 +147,16 @@ void transition_to(task_t *next_task)
     curctx = next_ctx;
 
     task_prologue();
-    //Check previous burst state
+    #if BOARD == capybara
+    // need to explore exactly how we want BURST tasks to be followed --> should
+    // we ever shutdown to reconfigure? Or should we always ride the burst wave
+    // until we're out of energy? 
+    
+    // Check previous burst state and register a finished burst
     if(get_burst_status())
         set_burst_status(2); 
-    //Handle a burst
+    
+    // Handle a burst
     if(curctx->task->spec_cfg == BURST){
         capybara_config_banks(prechg_config.banks); 
         set_burst_status(1); 
@@ -158,20 +164,24 @@ void transition_to(task_t *next_task)
     }
     else{
         set_burst_status(0); 
-        //Handle a precharge call
-        if(prechg_status){
+        // Set up a precharge in response to a preburst task if we haven't
+        // precharged already.
+        if(curctx->task->spec_cfg == PREBURST && !prechg_status){
+            prechg_config.banks = curctx->task->prechg_cfg->banks; 
             capybara_config_banks(prechg_config.banks);
             prechg_status = 0; 
             capybara_shutdown(); 
             capybara_wait_for_supply(); 
         }
-        //Handle a new config 
+        // Handle a new config 
         if(curctx->task->spec_cfg == CONFIGD){
-            base_config.banks = curctx->task->pcfg->cap_cfg;  
+            base_config.banks = curctx->task->pcfg->banks;  
             capybara_config_banks(base_config.banks); 
             capybara_wait_for_supply();  
         } 
     }
+    #endif
+
     __asm__ volatile ( // volatile because output operands unused by C
         "mov #0x2400, r1\n"
         "br %[ntask]\n"
@@ -406,7 +416,7 @@ void _capybara_handler(void) {
     else{ 
         // Check if the task we're executing now has a special power requirement
         if(curctx->task->spec_cfg){
-            base_config.banks = curctx->task->pcfg->cap_cfg; 
+            base_config.banks = curctx->task->pcfg->banks; 
         }
         // Finally, just re-up the standard bank config
         capybara_config_banks(base_config.banks); 
