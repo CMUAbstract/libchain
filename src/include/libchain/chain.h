@@ -188,10 +188,7 @@ extern context_t * volatile curctx;
 
 #define TASK_REF(func) &TASK_SYM_NAME(func)
     
-#define GET_MACRO(_0,_1,_2,NAME,...) NAME
 
-#define SET_CFGS(...) \
-    GET_MACRO(_0, ##__VA_ARGS__, SET_PREBURST, SET_CONFIGD, SET_VOID)(__VA_ARGS__)
 /** @brief Declare a task
  *
  *  @param idx      Global task index, zero-based
@@ -209,12 +206,34 @@ extern context_t * volatile curctx;
  *         for each task: mask, index, name. That way we can
  *         have access to task name for diagnostic output.
  */
-#define TASK(idx, func, spec_cfg, pwr_level) \
+#define TASK_BASIC(idx, func) \
     void func(); \
-    switch(spec_cfg){ \
-        case PREBURST: \
-            __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, \
-            spec_cfg, pwr_levels+pwr_level,{0},{0}, 0, 0, #func }; \
+    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, 0, {0},\
+        {0},{0},0,0, #func }; \
+
+#define TASK_DEFBUR(idx, func, spec_cfg) \
+    void func(); \
+    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, spec_cfg, {0},\
+        {0},{0},0,0, #func }; \
+
+#define TASK_CONFIGD(idx, func, spec_cfg, pwr_level) \
+    void func(); \
+    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, spec_cfg, \
+        pwr_levels + pwr_level, {0},{0},0,0, #func }; \
+
+#define TASK_PREBURST(idx, func, spec_cfg, burst_level, op_pwr_level) \
+    void func(); \
+    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, spec_cfg, \
+        pwr_levels + op_pwr_level, pwr_levels + burst_level,{0},0,0, #func }; \
+
+#define GET_TASK_MACRO(_1,_2,_3,_4,_5,NAME,...) NAME
+
+#define SET_TASK(...) \
+    GET_TASK_MACRO(__VA_ARGS__,TASK_PREBURST,TASK_CONFIGD,\
+        TASK_DEFBUR, TASK_BASIC )(__VA_ARGS__) \
+
+#define TASK(...) \
+    SET_TASK(__VA_ARGS__) \
 
 /** @brief Function called on every reboot
  *  @details This function usually initializes hardware, such as GPIO
@@ -247,8 +266,8 @@ extern task_t TASK_SYM_NAME(_entry_task);
  *           with a special name or to define a task pointer symbol outside
  *           of the library.
  */
-#define ENTRY_TASK(task, spec_cfg, cap_cfg) \
-    TASK(0, _entry_task, spec_cfg, cap_cfg) \
+#define ENTRY_TASK(task) \
+    TASK(0, _entry_task) \
     void _entry_task() { TRANSITION_TO(task); }
 
 /** @brief Init function prototype
