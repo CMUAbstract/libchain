@@ -5,6 +5,7 @@ OBJECTS = \
 
 DEPS += \
 	libmsp \
+  libcapybara\
 
 override SRC_ROOT = ../../src
 

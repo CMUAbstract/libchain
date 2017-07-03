@@ -5,6 +5,14 @@
 #include <stdint.h>
 
 #include <libmsp/mem.h>
+#include <libmsp/watchdog.h>
+#include <libmsp/gpio.h>
+#include <libmsp/periph.h>
+#include <libmsp/sleep.h>
+
+#include <libcapybara/reconfig.h>
+#include <libcapybara/power.h> 
+#include <libcapybara/capybara.h> 
 
 #include "repeat.h"
 
@@ -14,15 +22,26 @@
 #endif // LIBCHAIN_ENABLE_DIAGNOSTICS
 
 #define MAX_DIRTY_SELF_FIELDS 4
+//TODO hide these next two defs in Makefile.config 
+#define PORT_SENSE_SW 3
+#define PIN_SENSE_SW  7
+
+#define PORT_RADIO_SW 3
+#define PIN_RADIO_SW  2
 
 typedef void (task_func_t)(void);
 typedef unsigned chain_time_t;
 typedef uint32_t task_mask_t;
 typedef uint16_t field_mask_t;
-typedef unsigned task_idx_t;
-typedef uint8_t cap_cfg_t; 
+typedef unsigned task_idx_t; 
 typedef float pot_vthresh_t; 
 
+typedef enum {
+    DEFAULT,
+    CONFIGD,
+    BURST,
+    PREBURST,
+} task_cfg_spec_t;
 
 typedef enum {
     CHAN_TYPE_T2T,
@@ -63,7 +82,7 @@ typedef struct _self_field_meta_t {
 } self_field_meta_t;
 
 typedef struct _task_pcfg_t {
-    cap_cfg_t cap_cfg; 
+    capybara_bankmask_t cap_cfg; 
     pot_vthresh_t pot_vthresh; 
 } task_pcfg_t; 
 
@@ -71,8 +90,13 @@ typedef struct {
     task_func_t *func;
     task_mask_t mask;
     task_idx_t idx;
-    task_pcfg_t pcfg; 
-
+    // To characterize the power config of a function we have two fields: 
+    // cfg_spec indicates if a power config is specified for the task
+    // pcfg is the object which holds the power configuration if cfg_spec > 0 
+    // Note: right now cfg_spec is effectively boolean, but its been left as a byte for
+    // future use. 
+    task_cfg_spec_t spec_cfg; 
+    task_pcfg_t *pcfg; 
     // Dirty self channel fields are ones to which there had been a
     // chan_out. The out value is "staged" in the alternate buffer of
     // the self-channel double-buffer pair for each field. On transition,
@@ -86,6 +110,13 @@ typedef struct {
     char name[TASK_NAME_SIZE];
 #endif // LIBCHAIN_ENABLE_DIAGNOSTICS
 } task_t;
+
+/** @brief returns number of system reboots to user space
+ *  @param none
+ *  @returns _numBoots
+ */
+
+//unsigned get_numBoots(void); 
 
 #define SELF_CHAN_IDX_BIT_DIRTY_CURRENT  0x0001U
 #define SELF_CHAN_IDX_BIT_DIRTY_NEXT     0x0100U
@@ -160,10 +191,21 @@ extern context_t * volatile curctx;
 #define CHAN_DIAG_FIELDS(src, prefix, dest)
 #endif // !LIBCHAIN_ENABLE_DIAGNOSTICS
 
+/** @brief Internal macro for accessing the new power_config */ 
+#define MY_PWR_CFG_NAME(idx) pwr_ ## idx 
+
+#define MY_PWR_CFG_REF(idx) &MY_PWR_CFG_NAME(idx)
+
+/** @brief Internal macro for constructing a power_config object */
+#define MY_PWR_CFG(idx,cap_cfg, vthresh) \
+    task_pcfg_t MY_PWR_CFG_NAME(idx) = {cap_cfg, vthresh};\
+
 /** @brief Declare a task
  *
  *  @param idx      Global task index, zero-based
  *  @param func     Pointer to task function
+ *  @param spec_cfg Byte indicating a specific config for this task
+ *  @param cap_cfg  Capybara cap bank mask for the task 
  *
  *   TODO: These do not need to be stored in memory, could be resolved
  *         into literal values and encoded directly in the code instructions.
@@ -175,11 +217,13 @@ extern context_t * volatile curctx;
  *         for each task: mask, index, name. That way we can
  *         have access to task name for diagnostic output.
  */
-#define TASK(idx, func) \
+#define TASK(idx, func, spec_cfg, cap_cfg) \
     void func(); \
-    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, {0}, 0, 0, TASK_DIAG_FIELDS(func) }; \
+    MY_PWR_CFG(idx,cap_cfg,spec_cfg) \
+    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, spec_cfg, \
+                MY_PWR_CFG_REF(idx),{0}, 0, 0, TASK_DIAG_FIELDS(func) }; \
+    //TASK_REF(func) ## ->pcfg.banks = cap_cfg;
 
-#define TASK_REF(func) &TASK_SYM_NAME(func)
 
 /** @brief Function called on every reboot
  *  @details This function usually initializes hardware, such as GPIO
@@ -212,8 +256,9 @@ extern task_t TASK_SYM_NAME(_entry_task);
  *           with a special name or to define a task pointer symbol outside
  *           of the library.
  */
-#define ENTRY_TASK(task) \
-    TASK(0, _entry_task) \
+ //TODO: we can't have 0's just hacked on here!!
+#define ENTRY_TASK(task, spec_cfg, cap_cfg) \
+    TASK(0, _entry_task, spec_cfg, cap_cfg) \
     void _entry_task() { TRANSITION_TO(task); }
 
 /** @brief Call this in the last statement in main to transfer control to the task chain
@@ -408,12 +453,5 @@ void chan_out(const char *field_name, const void *value,
  *  @param task     Name of the task function
  *  */
 #define TRANSITION_TO(task) transition_to(TASK_REF(task))
-
-/** @brief returns number of system reboots to user space
- *  @param none
- *  @returns _numBoots
- */
-
-unsigned get_numBoots(void); 
 
 #endif // CHAIN_H
