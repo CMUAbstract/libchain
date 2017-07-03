@@ -167,7 +167,7 @@ void transition_to(task_t *next_task)
         // Set up a precharge in response to a preburst task if we haven't
         // precharged already.
         if(curctx->task->spec_cfg == PREBURST && !prechg_status){
-            prechg_config.banks = curctx->task->prechg_cfg->banks; 
+            prechg_config.banks = curctx->task->precfg->banks; 
             capybara_config_banks(prechg_config.banks);
             prechg_status = 0; 
             capybara_shutdown(); 
@@ -175,7 +175,7 @@ void transition_to(task_t *next_task)
         }
         // Handle a new config 
         if(curctx->task->spec_cfg == CONFIGD){
-            base_config.banks = curctx->task->pcfg->banks;  
+            base_config.banks = curctx->task->precfg->banks;  
             capybara_config_banks(base_config.banks); 
             capybara_wait_for_supply();  
         } 
@@ -398,7 +398,7 @@ void _capybara_handler(void) {
     else{ 
         // Check if the task we're executing now has a special power requirement
         if(curctx->task->spec_cfg){
-            base_config.banks = curctx->task->pcfg->banks; 
+            base_config.banks = curctx->task->opcfg->banks; 
         }
         // Finally, just re-up the standard bank config
         capybara_config_banks(base_config.banks); 
