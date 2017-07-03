@@ -36,6 +36,8 @@ typedef uint16_t field_mask_t;
 typedef unsigned task_idx_t; 
 typedef float pot_vthresh_t; 
 typedef capybara_cfg_spec_t task_cfg_spec_t; 
+typedef capybara_cfg_t task_opcfg_t ;
+typedef capybara_cfg_t task_precfg_t ;
 
 typedef enum {
     CHAN_TYPE_T2T,
@@ -75,22 +77,29 @@ typedef struct _self_field_meta_t {
     unsigned idx_pair;
 } self_field_meta_t;
 
+/*
 typedef struct _task_pcfg_t {
     capybara_bankmask_t cap_cfg; 
     pot_vthresh_t pot_vthresh; 
 } task_pcfg_t; 
+*/
 
 typedef struct {
     task_func_t *func;
     task_mask_t mask;
     task_idx_t idx;
-    // To characterize the power config of a function we have two fields: 
+    // To characterize the power config of a function we have three fields: 
     // cfg_spec indicates if a power config is specified for the task
-    // pcfg is the object which holds the power configuration if cfg_spec > 0 
-    // Note: right now cfg_spec is effectively boolean, but its been left as a byte for
-    // future use. 
+    // opcfg is the object which holds the power configuration if cfg_spec > 0 
+    // precfg is the power configuration we're precharging to-- only important
+    // for preburst tasks
+    // TODO automatically set precfg to satisfy the burst requirements of the
+    // most power hungry burst task that follows a preburst, and throw an error
+    // if a preburst task is followed by a task with a greater energy usage than
+    // the precfg level 
     task_cfg_spec_t spec_cfg; 
-    task_pcfg_t *pcfg; 
+    task_opcfg_t *opcfg; 
+    task_precfg_t *precfg; 
     // Dirty self channel fields are ones to which there had been a
     // chan_out. The out value is "staged" in the alternate buffer of
     // the self-channel double-buffer pair for each field. On transition,
@@ -194,6 +203,11 @@ extern context_t * volatile curctx;
 #define MY_PWR_CFG(idx,cap_cfg, vthresh) \
     task_pcfg_t MY_PWR_CFG_NAME(idx) = {cap_cfg, vthresh};\
 
+#define GET_MACRO(_0,_1,_2,NAME,...) NAME
+
+#define SET_CFGS(...) \
+    GET_MACRO(_0, ##__VA_ARGS__, SET_PREBURST, SET_CONFIGD, SET_VOID)(__VA_ARGS__)
+
 /** @brief Declare a task
  *
  *  @param idx      Global task index, zero-based
@@ -213,8 +227,10 @@ extern context_t * volatile curctx;
  */
 #define TASK(idx, func, spec_cfg, pwr_level) \
     void func(); \
-    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, spec_cfg, \
-                pwr_levels+pwr_level,{0}, 0, 0, TASK_DIAG_FIELDS(func) };
+    switch(spec_cfg){ \
+        case PREBURST: \
+            __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, \
+            spec_cfg, pwr_levels+pwr_level,{0},{0}, 0, 0, TASK_DIAG_FIELDS(func) }; \
 
 /** @brief Function called on every reboot
  *  @details This function usually initializes hardware, such as GPIO
@@ -247,7 +263,6 @@ extern task_t TASK_SYM_NAME(_entry_task);
  *           with a special name or to define a task pointer symbol outside
  *           of the library.
  */
- //TODO: we can't have 0's just hacked on here!!
 #define ENTRY_TASK(task, spec_cfg, cap_cfg) \
     TASK(0, _entry_task, spec_cfg, cap_cfg) \
     void _entry_task() { TRANSITION_TO(task); }
