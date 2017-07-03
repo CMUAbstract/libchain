@@ -33,13 +33,7 @@ typedef uint32_t task_mask_t;
 typedef uint16_t field_mask_t;
 typedef unsigned task_idx_t; 
 typedef float pot_vthresh_t; 
-
-typedef enum {
-    DEFAULT,
-    CONFIGD,
-    BURST,
-    PREBURST,
-} task_cfg_spec_t;
+typedef capybara_cfg_spec_t task_cfg_spec_t; 
 
 typedef enum {
     CHAN_TYPE_T2T,
@@ -202,13 +196,10 @@ extern context_t * volatile curctx;
  *         for each task: mask, index, name. That way we can
  *         have access to task name for diagnostic output.
  */
-#define TASK(idx, func, spec_cfg, cap_cfg) \
+#define TASK(idx, func, spec_cfg, pwr_level) \
     void func(); \
-    MY_PWR_CFG(idx,cap_cfg,spec_cfg) \
     __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, spec_cfg, \
-                MY_PWR_CFG_REF(idx),{0}, 0, 0, #func }; \
-    //TASK_REF(func) ## ->pcfg.banks = cap_cfg;
-
+                pwr_levels+pwr_level,{0}, 0, 0, #func }; \
 
 /** @brief Function called on every reboot
  *  @details This function usually initializes hardware, such as GPIO
