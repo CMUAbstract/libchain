@@ -31,10 +31,11 @@ __nv context_t * volatile curctx = &context_0;
 // for internal instrumentation purposes
 __nv volatile unsigned _numBoots = 0;
 
+/*
 unsigned get_numBoots(void){
   return _numBoots; 
 }
-
+*/
 /**
  * @brief Function to be invoked at the beginning of every task
  */
@@ -94,21 +95,27 @@ void transition_to(task_t *next_task)
 {
     context_t *next_ctx; // this should be in a register for efficiency
                          // (if we really care, write this func in asm)
-
+    
     // reset stack pointer
     // update current task pointer
     // tick logical time
+    // set curctx with next_ctx
+    // flip self_channel buffers
+    // handle power system updates
     // jump to next task
 
     // NOTE: the order of these does not seem to matter, a reboot
     // at any point in this sequence seems to be harmless.
+    //    SIDE_NOTE: power system updates DO need to be at the bitter end so
+    //    that we can achieve forward progress since for different states, the
+    //    power system updates may end up killing the power. 
     //
     // NOTE: It might be a bit cleaner to reset the stack and
     // set the current task pointer in the function *prologue* --
     // would need compiler support for this.
     //
     // NOTE: It is harmless to increment the time even if we fail before
-    // transitioning to the next task. The reverse, i.e. failure to increment
+    // transitioning to the next task. The reverse, i.e. failure to increment  
     // time while having transitioned to the task, would break the
     // semantics of CHAN_IN (aka. sync), which should get the most recently
     // updated value.
@@ -130,7 +137,8 @@ void transition_to(task_t *next_task)
     //
     //       Probably need to write a custom entry point in asm, and
     //       use it instead of the C runtime one.
-
+    
+        
     next_ctx = curctx->next_ctx;
     next_ctx->task = next_task;
     next_ctx->time = curctx->time + 1;
@@ -139,7 +147,31 @@ void transition_to(task_t *next_task)
     curctx = next_ctx;
 
     task_prologue();
-
+    //Check previous burst state
+    if(get_burst_status())
+        set_burst_status(2); 
+    //Handle a burst
+    if(curctx->task->spec_cfg == BURST){
+        capybara_config_banks(prechg_config.banks); 
+        set_burst_status(1); 
+        capybara_wait_for_supply(); 
+    }
+    else{
+        set_burst_status(0); 
+        //Handle a precharge call
+        if(prechg_status){
+            capybara_config_banks(prechg_config.banks);
+            prechg_status = 0; 
+            capybara_shutdown(); 
+            capybara_wait_for_supply(); 
+        }
+        //Handle a new config 
+        if(curctx->task->spec_cfg == CONFIGD){
+            base_config.banks = curctx->task->pcfg->cap_cfg;  
+            capybara_config_banks(base_config.banks); 
+            capybara_wait_for_supply();  
+        } 
+    }
     __asm__ volatile ( // volatile because output operands unused by C
         "mov #0x2400, r1\n"
         "br %[ntask]\n"
@@ -335,11 +367,59 @@ void chan_out(const char *field_name, const void *value,
     va_end(ap);
 }
 
+/** @brief Handler for capybara power-on sequence 
+    TODO add this to libcapybara...
+*/
+void _capybara_handler(void) {
+    msp_watchdog_disable();
+    msp_gpio_unlock();
+    __enable_interrupt();
+    capybara_wait_for_supply();
+    capybara_config_pins();
+    
+    GPIO(PORT_SENSE_SW, OUT) &= ~BIT(PIN_SENSE_SW);
+    GPIO(PORT_SENSE_SW, DIR) |= BIT(PIN_SENSE_SW);
+    
+    GPIO(PORT_RADIO_SW, OUT) &= ~BIT(PIN_RADIO_SW);
+    GPIO(PORT_RADIO_SW, DIR) |= BIT(PIN_RADIO_SW);
+    
+    capybara_shutdown_on_deep_discharge(); 
+    
+    // First check precharge state
+    if(get_prechg_status()){
+        capybara_config_banks(prechg_config.banks);
+        prechg_status = 0; 
+        capybara_shutdown(); 
+        capybara_wait_for_supply(); 
+    }
+    // Next check if there's an ongoing burst
+    else if(burst_status){
+        if(burst_status == 2){
+          burst_status = 0; 
+        }
+        else{
+          capybara_config_banks(prechg_config.banks); 
+          capybara_wait_for_supply(); 
+        } 
+    }
+    // TODO: optimize this out... will take more reasoning about power cycles
+    else{ 
+        // Check if the task we're executing now has a special power requirement
+        if(curctx->task->spec_cfg){
+            base_config.banks = curctx->task->pcfg->cap_cfg; 
+        }
+        // Finally, just re-up the standard bank config
+        capybara_config_banks(base_config.banks); 
+    }
+    return; 
+}        
+
+
+
 /** @brief Entry point upon reboot */
 int main() {
-    //#if BOARD == capybara 
-    #if 0 
-        _capybara_config_handler(); 
+    #if BOARD == capybara 
+    _capybara_handler(); 
     #endif
 
     _init();
