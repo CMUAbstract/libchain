@@ -208,18 +208,18 @@ extern context_t * volatile curctx;
  */
 #define TASK_BASIC(idx, func) \
     void func(); \
-    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, 0, {0},\
-        {0},{0},0,0, #func }; \
+    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, 0, NULL,\
+        NULL,{0},0,0, #func }; \
 
 #define TASK_DEFBUR(idx, func, spec_cfg) \
     void func(); \
-    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, spec_cfg, {0},\
-        {0},{0},0,0, #func }; \
+    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, spec_cfg, NULL,\
+        NULL,{0},0,0, #func }; \
 
 #define TASK_CONFIGD(idx, func, spec_cfg, pwr_level) \
     void func(); \
     __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, spec_cfg, \
-        pwr_levels + pwr_level, {0},{0},0,0, #func }; \
+        pwr_levels + pwr_level, NULL,{0},0,0, #func }; \
 
 #define TASK_PREBURST(idx, func, spec_cfg, burst_level, op_pwr_level) \
     void func(); \
