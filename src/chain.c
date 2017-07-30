@@ -400,9 +400,6 @@ int main() {
     // transition_to(curtask);
 
     task_prologue();
-    
-    P3OUT |= BIT6;
-    P3DIR |= BIT6;
 
     __asm__ volatile ( // volatile because output operands unused by C
         "br %[nt]\n"
