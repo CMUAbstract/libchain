@@ -220,25 +220,26 @@ extern context_t * volatile curctx;
  *         for each task: mask, index, name. That way we can
  *         have access to task name for diagnostic output.
  */
-#define TASK_BASIC(idx, func) \
+#define TASK_DEF(idx, func, spec_cfg, pwr_level, burst_level) \
     void func(); \
-    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, 0, NULL,\
-        NULL,{0},0,0, TASK_DIAG_FIELDS(func) }; \
+    __nv task_t TASK_SYM_NAME(func) = { \
+        func, (1UL << idx), idx,\
+        spec_cfg, pwr_level, burst_level, \
+        {0}, 0, 0 \
+        TASK_DIAG_FIELDS(func) \
+    }; \
+
+#define TASK_BASIC(idx, func) \
+    TASK_DEF(idx, func, 0, NULL, NULL)
 
 #define TASK_DEFBUR(idx, func, spec_cfg) \
-    void func(); \
-    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, spec_cfg, NULL,\
-        NULL,{0},0,0, #func }; \
+    TASK_DEF(idx, func, spec_cfg, NULL, NULL)
 
 #define TASK_CONFIGD(idx, func, spec_cfg, pwr_level) \
-    void func(); \
-    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, spec_cfg, \
-        pwr_levels + pwr_level, NULL,{0},0,0, #func }; \
+    TASK_DEF(idx, func, spec_cfg, pwr_levels + pwr_level, NULL)
 
 #define TASK_PREBURST(idx, func, spec_cfg, burst_level, op_pwr_level) \
-    void func(); \
-    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, spec_cfg, \
-        pwr_levels + op_pwr_level, pwr_levels + burst_level,{0},0,0, #func }; \
+    TASK_DEF(idx, func, spec_cfg, pwr_levels + op_pwr_level, pwr_levels + burst_level)
 
 #define GET_TASK_MACRO(_1,_2,_3,_4,_5,NAME,...) NAME
 
