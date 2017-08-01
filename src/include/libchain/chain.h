@@ -207,17 +207,10 @@ extern task_t TASK_SYM_NAME(_entry_task);
     TASK(0, _entry_task) \
     void _entry_task() { TRANSITION_TO(task); }
 
-/** @brief Init function prototype
- *  @details We rely on the special name of this symbol to initialize the
- *           current task pointer. The entry function is defined in the user
- *           application through a macro provided by our header.
+/** @brief Call this in the last statement in main to transfer control to the task chain
+ *  @details This function does not return.
  */
-void _init();
-
-/** @brief Declare the function to be called on each boot
- *  @details The same notes apply as for entry task.
- */
-#define INIT_FUNC(func) void _init() { func(); }
+int chain_main();
 
 void task_prologue();
 void transition_to(task_t *task);
