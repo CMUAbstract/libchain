@@ -369,9 +369,7 @@ void chan_out(const char *field_name, const void *value,
 
 
 /** @brief Entry point upon reboot */
-int main() {
-    _init();
-
+int chain_main() {
     _numBoots++;
 
     // Resume execution at the last task that started but did not finish
