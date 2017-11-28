@@ -10,7 +10,7 @@ include the header and link against the library.
 
 To get started quickly writing, building and deploying applications with Chain
 on real energy-harvesting devices, see the guide in the [release
-documentation](https://github.com/CMUAbstract/releases/Chain.md).
+documentation](https://github.com/CMUAbstract/releases/blob/master/Chain.md).
 
 Table of Contents
 -----------------
