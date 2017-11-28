@@ -12,6 +12,14 @@ To get started quickly writing, building and deploying applications with Chain
 on real energy-harvesting devices, see the guide in the [release
 documentation](https://github.com/CMUAbstract/releases/Chain.md).
 
+Table of Contents
+-----------------
+
+* [Overview](#overview)
+* [Programming Interface](#chain-programming-interface)
+* [Diagnostics](#diagnostics)
+* [Dependencies](#dependencies)
+
 Overview
 --------
 
@@ -23,8 +31,8 @@ statically allocated in non-volatile memory. The programming interface
 provided by `libchain` includes macros for declaring tasks and channels,
 and for accessing channels from task code.
 
-Chain Programming Interface
----------------------------
+Programming Interface
+---------------------
 
 The programmer\'s interface provided by `libchain`, and defined in
 `libchain/src/include/libchain/libchain.h`, consists of a set of macros for
