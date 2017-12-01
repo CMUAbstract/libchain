@@ -203,6 +203,65 @@ void transition_to(task_t *next_task)
     //     br next_task
 }
 
+void transition_to_and_shutdown(task_t *next_task)
+{
+    context_t *next_ctx; // this should be in a register for efficiency
+                         // (if we really care, write this func in asm)
+
+    // reset stack pointer
+    // update current task pointer
+    // tick logical time
+    // set curctx with next_ctx
+    // flip self_channel buffers
+    // handle power system updates
+    // jump to next task
+
+    // NOTE: the order of these does not seem to matter, a reboot
+    // at any point in this sequence seems to be harmless.
+    //    SIDE_NOTE: power system updates DO need to be at the bitter end so
+    //    that we can achieve forward progress since for different states, the
+    //    power system updates may end up killing the power. 
+    //
+    // NOTE: It might be a bit cleaner to reset the stack and
+    // set the current task pointer in the function *prologue* --
+    // would need compiler support for this.
+    //
+    // NOTE: It is harmless to increment the time even if we fail before
+    // transitioning to the next task. The reverse, i.e. failure to increment  
+    // time while having transitioned to the task, would break the
+    // semantics of CHAN_IN (aka. sync), which should get the most recently
+    // updated value.
+    //
+    // NOTE: Storing two pointers (one to next and one to current context)
+    // does not seem acceptable, because the two would need to be kept
+    // consistent in the face of intermittence. But, could keep one pointer
+    // to current context and a pointer to next context inside the context
+    // structure. The only reason to do that is if it is more efficient --
+    // i.e. avoids XORing the index and getting the actual pointer.
+
+    // TODO: handle overflow of timestamp. Some very raw ideas:
+    //          * limit the age of values
+    //          * a maintainance task that fixes up stored timestamps
+    //          * extra bit to mark timestamps as pre/post overflow
+
+    // TODO: re-use the top-of-stack address used in entry point, instead
+    //       of hardcoding the address.
+    //
+    //       Probably need to write a custom entry point in asm, and
+    //       use it instead of the C runtime one.
+
+    next_ctx = curctx->next_ctx;
+    next_ctx->task = next_task;
+    next_ctx->time = curctx->time + 1;
+
+    next_ctx->next_ctx = curctx;
+    curctx = next_ctx;
+
+    task_prologue();
+
+    capybara_shutdown();
+}
+
 /** @brief Sync: return the most recently updated value of a given field
  *  @param field_name   string name of the field, used for diagnostics
  *  @param var_size     size of the 'variable' type (var_meta_t + value type)
