@@ -293,6 +293,7 @@ int chain_main();
 
 void task_prologue();
 void transition_to(task_t *task);
+void transition_to_and_shutdown(task_t *task);
 void *chan_in(const char *field_name, size_t var_size, int count, ...);
 void chan_out(const char *field_name, const void *value,
               size_t var_size, int count, ...);
@@ -478,5 +479,6 @@ void chan_out(const char *field_name, const void *value,
  *  @param task     Name of the task function
  *  */
 #define TRANSITION_TO(task) transition_to(TASK_REF(task))
+#define TRANSITION_TO_AND_SHUTDOWN(task) transition_to_and_shutdown(TASK_REF(task))
 
 #endif // CHAIN_H
