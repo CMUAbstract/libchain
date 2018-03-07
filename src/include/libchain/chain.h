@@ -22,12 +22,6 @@
 #endif // LIBCHAIN_ENABLE_DIAGNOSTICS
 
 #define MAX_DIRTY_SELF_FIELDS 4
-//TODO hide these next two defs in Makefile.config 
-#define PORT_SENSE_SW 3
-#define PIN_SENSE_SW  7
-
-#define PORT_RADIO_SW 3
-#define PIN_RADIO_SW  2
 
 typedef void (task_func_t)(void);
 typedef unsigned chain_time_t;
