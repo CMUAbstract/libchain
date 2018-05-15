@@ -8,8 +8,10 @@
 
 #include "repeat.h"
 
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
 #define TASK_NAME_SIZE 32
 #define CHAN_NAME_SIZE 32
+#endif // LIBCHAIN_ENABLE_DIAGNOSTICS
 
 #define MAX_DIRTY_SELF_FIELDS 4
 
@@ -28,14 +30,18 @@ typedef enum {
 } chan_type_t;
 
 // TODO: include diag fields only when diagnostics are enabled
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
 typedef struct _chan_diag_t {
     char source_name[CHAN_NAME_SIZE];
     char dest_name[CHAN_NAME_SIZE];
 } chan_diag_t;
+#endif // LIBCHAIN_ENABLE_DIAGNOSTICS
 
 typedef struct _chan_meta_t {
     chan_type_t type;
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
     chan_diag_t diag;
+#endif // LIBCHAIN_ENABLE_DIAGNOSTICS
 } chan_meta_t;
 
 typedef struct _var_meta_t {
@@ -67,7 +73,9 @@ typedef struct {
 
     volatile chain_time_t last_execute_time; // to execute prologue only once
 
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
     char name[TASK_NAME_SIZE];
+#endif // LIBCHAIN_ENABLE_DIAGNOSTICS
 } task_t;
 
 #define SELF_CHAN_IDX_BIT_DIRTY_CURRENT  0x0001U
@@ -133,6 +141,16 @@ extern context_t * volatile curctx;
 /** @brief Internal macro for constructing name of task symbol */
 #define TASK_SYM_NAME(func) _task_ ## func
 
+#define TASK_REF(func) &TASK_SYM_NAME(func)
+
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+#define TASK_DIAG_FIELDS(func) , #func
+#define CHAN_DIAG_FIELDS(src, prefix, dest) , { #src, prefix #dest }
+#else // !LIBCHAIN_ENABLE_DIAGNOSTICS
+#define TASK_DIAG_FIELDS(func)
+#define CHAN_DIAG_FIELDS(src, prefix, dest)
+#endif // !LIBCHAIN_ENABLE_DIAGNOSTICS
+
 /** @brief Declare a task
  *
  *  @param idx      Global task index, zero-based
@@ -150,7 +168,7 @@ extern context_t * volatile curctx;
  */
 #define TASK(idx, func) \
     void func(); \
-    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, {0}, 0, 0, #func }; \
+    __nv task_t TASK_SYM_NAME(func) = { func, (1UL << idx), idx, {0}, 0, 0, TASK_DIAG_FIELDS(func) }; \
 
 #define TASK_REF(func) &TASK_SYM_NAME(func)
 
@@ -229,11 +247,11 @@ void chan_out(const char *field_name, const void *value,
 
 #define CHANNEL(src, dest, type) \
     __nv CH_TYPE(src, dest, type) _ch_ ## src ## _ ## dest = \
-        { { CHAN_TYPE_T2T, { #src, #dest } } }
+        { { CHAN_TYPE_T2T CHAN_DIAG_FIELDS(src, "", dest) } }
 
 #define SELF_CHANNEL(task, type) \
     __nv CH_TYPE(task, task, type) _ch_ ## task ## _ ## task = \
-        { { CHAN_TYPE_SELF, { #task, #task } }, SELF_FIELDS_INITIALIZER(type) }
+        { { CHAN_TYPE_SELF CHAN_DIAG_FIELDS(task, "", task) }, SELF_FIELDS_INITIALIZER(type) }
 
 /** @brief Declare a channel for passing arguments to a callable task
  *  @details Callers would output values into this channels before
@@ -246,10 +264,10 @@ void chan_out(const char *field_name, const void *value,
  * */
 #define CALL_CHANNEL(callee, type) \
     __nv CH_TYPE(caller, callee, type) _ch_call_ ## callee = \
-        { { CHAN_TYPE_CALL, { #callee, "call:"#callee } } }
+        { { CHAN_TYPE_CALL CHAN_DIAG_FIELDS(callee, "call:", callee) } }
 #define RET_CHANNEL(callee, type) \
     __nv CH_TYPE(caller, callee, type) _ch_ret_ ## callee = \
-        { { CHAN_TYPE_RETURN, { #callee, "ret:"#callee } } }
+        { { CHAN_TYPE_RETURN CHAN_DIAG_FIELDS(callee, "ret:", callee) } }
 
 /** @brief Delcare a channel for receiving results from a callable task
  *  @details Callable tasks output values into this channel, and a
@@ -260,7 +278,7 @@ void chan_out(const char *field_name, const void *value,
  */
 #define RETURN_CHANNEL(callee, type) \
     __nv CH_TYPE(caller, callee, type) _ch_ret_ ## callee = \
-        { { CHAN_TYPE_RETURN, { #callee, "ret:"#callee } } }
+        { { CHAN_TYPE_RETURN CHAN_DIAG_FIELDS(callee, "ret:", callee) } }
 
 /** @brief Declare a multicast channel: one source many destinations
  *  @params name    short name used to refer to the channels from source and destinations
@@ -273,7 +291,7 @@ void chan_out(const char *field_name, const void *value,
  */
 #define MULTICAST_CHANNEL(type, name, src, dest, ...) \
     __nv CH_TYPE(src, name, type) _ch_mc_ ## src ## _ ## name = \
-        { { CHAN_TYPE_MULTICAST, { #src, "mc:" #name } } }
+        { { CHAN_TYPE_MULTICAST CHAN_DIAG_FIELDS(src, "mc:", name) } }
 
 #define CH(src, dest) (&_ch_ ## src ## _ ## dest)
 #define SELF_CH(tsk)  CH(tsk, tsk)

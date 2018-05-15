@@ -166,7 +166,6 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
     unsigned latest_update = 0;
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
     unsigned latest_chan_idx = 0;
-    char curidx;
 #endif
 
     var_meta_t *var;
@@ -196,23 +195,16 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
                 var = (var_meta_t *)(field +
                         offsetof(SELF_FIELD_TYPE(void_type_t), var) + var_offset);
 
-#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
-                curidx = '0' + self_field->curidx;
-#endif
                 break;
             }
             default:
                 var = (var_meta_t *)(field +
                         offsetof(FIELD_TYPE(void_type_t), var));
-#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
-                curidx = ' ';
-                break;
-#endif
         }
 
-        LIBCHAIN_PRINTF(" {%u} %s->%s:%c c%04x:off%u:v%04x [%u],", i,
+        LIBCHAIN_PRINTF(" {%u} %s->%s c%04x:off%u:v%04x [%u],", i,
                chan_meta->diag.source_name, chan_meta->diag.dest_name,
-               curidx, (uint16_t)chan, field_offset,
+               (uint16_t)chan, field_offset,
                (uint16_t)var, var->timestamp);
 
         if (var->timestamp > latest_update) {
@@ -257,9 +249,6 @@ void chan_out(const char *field_name, const void *value,
     va_list ap;
     int i;
     var_meta_t *var;
-#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
-    char curidx;
-#endif
 
     va_start(ap, count);
 
@@ -298,25 +287,18 @@ void chan_out(const char *field_name, const void *value,
                 self_field->idx_pair |= SELF_CHAN_IDX_BIT_DIRTY_CURRENT;
                 curtask->dirty_self_fields[curtask->num_dirty_self_fields++] = self_field;
 
-#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
-                curidx = '0' + next_self_chan_field_idx;
-#endif
                 break;
             }
             default:
                 var = (var_meta_t *)(field +
                         offsetof(FIELD_TYPE(void_type_t), var));
-#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
-                curidx = ' ';
-                break;
-#endif
         }
 
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
-        LIBCHAIN_PRINTF("[%u] %s: out: '%s': %s -> %s:%c c%04x:off%u:v%04x: ",
+        LIBCHAIN_PRINTF("[%u] %s: out: '%s': %s -> %s c%04x:off%u:v%04x: ",
                curctx->time, curctx->task->name, field_name,
                chan_meta->diag.source_name, chan_meta->diag.dest_name,
-               curidx, (uint16_t)chan, field_offset, (uint16_t)var);
+               (uint16_t)chan, field_offset, (uint16_t)var);
 
         for (int i = 0; i < var_size - sizeof(var_meta_t); ++i)
             LIBCHAIN_PRINTF("%02x ", *((uint8_t *)value + i));
