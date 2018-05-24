@@ -1,2 +1,9 @@
 .*.swp
 .*.swo
+*.o
+*.out
+*.a
+*.map
+*.d
+*.S
+*.bc
