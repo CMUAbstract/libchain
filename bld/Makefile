@@ -4,6 +4,7 @@ OBJECTS = \
 	chain.o \
 
 DEPS += \
+  libmspware \
 	libmsp \
 
 override SRC_ROOT = ../../src

@@ -1,0 +1,7 @@
+LLVM_ROOT ?= /path/to/llvm/install/directory
+#GCC_ROOT ?= /path/to/ti/msp430-gcc
+GCC_ROOT ?= /opt/ti/msp430-gcc
+#MEMENTOS_ROOT ?= ../Mementos
+
+GCC=$(GCC_ROOT)/bin/msp430-elf-gcc
+
