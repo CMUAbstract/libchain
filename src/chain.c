@@ -1,4 +1,5 @@
-#include <stdarg.h>
+#include <msp430.h>
+#include <stdio.h>
 #include <string.h>
 
 #ifndef LIBCHAIN_ENABLE_DIAGNOSTICS
@@ -79,6 +80,16 @@ void task_prologue()
     }
 }
 
+volatile int transition_cheat;
+void transition_to(void *loc){
+  if (loc > 10) {
+    transition_cheat = 1;
+  }
+  else {
+    transition_cheat = 0;
+  }
+  return;
+}
 /**
  * @brief Transfer control to the given task
  * @details Finalize the current task and jump to the given task.
@@ -86,7 +97,7 @@ void task_prologue()
  *
  *  TODO: mark this function as bare (i.e. no prologue) for efficiency
  */
-void transition_to(task_t *next_task)
+void libchain_transition_to(task_t *next_task)
 {
     context_t *next_ctx; // this should be in a register for efficiency
                          // (if we really care, write this func in asm)
@@ -159,9 +170,87 @@ void transition_to(task_t *next_task)
  *  @param ...          channel ptr, field offset in corresponding message type
  *  @return Pointer to the value, ready to be cast to final value type pointer
  */
-void *chan_in(const char *field_name, size_t var_size, int count, ...)
+void *chan_in1(const char *field_name, size_t var_size, int count, 
+  uint8_t *chan, size_t field_offset)
 {
-    va_list ap;
+    unsigned i;
+    unsigned latest_update = 0;
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+    unsigned latest_chan_idx = 0;
+    char curidx;
+#endif
+
+    var_meta_t *var;
+    var_meta_t *latest_var = NULL;
+
+    LIBCHAIN_PRINTF("[%u] %s: in: '%s':", curctx->time,
+                    curctx->task->name, field_name);
+// We'll change as little as possible by just leaving all of this as is.
+        uint8_t *chan_data = chan + offsetof(CH_TYPE(_sa, _da, _void_type_t), data);
+        chan_meta_t *chan_meta = (chan_meta_t *)(chan +
+                                    offsetof(CH_TYPE(_sb, _db, _void_type_t), meta));
+        uint8_t *field = chan_data + field_offset;
+
+        switch (chan_meta->type) {
+            case CHAN_TYPE_SELF: {
+                self_field_meta_t *self_field = (self_field_meta_t *)field;
+
+                unsigned var_offset =
+                    (self_field->idx_pair & SELF_CHAN_IDX_BIT_CURRENT) ? var_size : 0;
+
+                var = (var_meta_t *)(field +
+                        offsetof(SELF_FIELD_TYPE(void_type_t), var) + var_offset);
+
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+                curidx = '0' + self_field->curidx;
+#endif
+                break;
+            }
+            default:
+                var = (var_meta_t *)(field +
+                        offsetof(FIELD_TYPE(void_type_t), var));
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+                curidx = ' ';
+                break;
+#endif
+        }
+
+        LIBCHAIN_PRINTF(" {%u} %s->%s:%c c%04x:off%u:v%04x [%u],", i,
+               chan_meta->diag.source_name, chan_meta->diag.dest_name,
+               curidx, (uint16_t)chan, field_offset,
+               (uint16_t)var, var->timestamp);
+
+        if (var->timestamp > latest_update) {
+            latest_update = var->timestamp;
+            latest_var = var;
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+            latest_chan_idx = i;
+#endif
+        }
+
+    LIBCHAIN_PRINTF(": {latest %u}: ", latest_chan_idx);
+
+    uint8_t *value = (uint8_t *)latest_var + offsetof(VAR_TYPE(void_type_t), value);
+
+#ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
+    for (int i = 0; i < var_size - sizeof(var_meta_t); ++i)
+        LIBCHAIN_PRINTF("%02x ", value[i]);
+    LIBCHAIN_PRINTF("\r\n");
+#endif
+
+    return (void *)value;
+}
+
+/** @brief Sync: return the most recently updated value of a given field
+ *  @param field_name   string name of the field, used for diagnostics
+ *  @param var_size     size of the 'variable' type (var_meta_t + value type)
+ *  @param count        number of channels to sync
+ *  @param ...          channel ptr, field offset in corresponding message type
+ *  @return Pointer to the value, ready to be cast to final value type pointer
+ */
+void *chan_in2(const char *field_name, size_t var_size, int count, 
+  uint8_t *chan1, size_t field_offset1, uint8_t *chan2, size_t field_offset2)
+{
     unsigned i;
     unsigned latest_update = 0;
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
@@ -175,11 +264,12 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
     LIBCHAIN_PRINTF("[%u] %s: in: '%s':", curctx->time,
                     curctx->task->name, field_name);
 
-    va_start(ap, count);
+    uint8_t *chans[2] = {chan1, chan2};
+    size_t offsets[2] = {field_offset1, field_offset2};
 
-    for (i = 0; i < count; ++i) {
-        uint8_t *chan = va_arg(ap, uint8_t *);
-        size_t field_offset = va_arg(ap, unsigned);
+    for (i = 0; i < 2; ++i) {
+        uint8_t *chan = chans[i];
+        size_t field_offset = offsets[i];
 
         uint8_t *chan_data = chan + offsetof(CH_TYPE(_sa, _da, _void_type_t), data);
         chan_meta_t *chan_meta = (chan_meta_t *)(chan +
@@ -223,7 +313,6 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
 #endif
         }
     }
-    va_end(ap);
 
     LIBCHAIN_PRINTF(": {latest %u}: ", latest_chan_idx);
 
@@ -244,6 +333,9 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
     return (void *)value;
 }
 
+
+
+
 /** @brief Write a value to a field in a channel
  *  @param field_name    string name of the field, used for diagnostics
  *  @param value         pointer to value data
@@ -251,21 +343,16 @@ void *chan_in(const char *field_name, size_t var_size, int count, ...)
  *  @param count         number of output channels
  *  @param ...           channel ptr, field offset in corresponding message type
  */
-void chan_out(const char *field_name, const void *value,
-              size_t var_size, int count, ...)
+void chan_out(const char *field_name, const void *value, size_t var_size,
+  int count, uint8_t *chan, size_t field_offset)
 {
-    va_list ap;
     int i;
     var_meta_t *var;
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
     char curidx;
 #endif
 
-    va_start(ap, count);
-
     for (i = 0; i < count; ++i) {
-        uint8_t *chan = va_arg(ap, uint8_t *);
-        size_t field_offset = va_arg(ap, unsigned);
 
         uint8_t *chan_data = chan + offsetof(CH_TYPE(_sa, _da, _void_type_t), data);
         chan_meta_t *chan_meta = (chan_meta_t *)(chan +
@@ -328,7 +415,6 @@ void chan_out(const char *field_name, const void *value,
         memcpy(var_value, value, var_size - sizeof(var_meta_t));
     }
 
-    va_end(ap);
 }
 
 /** @brief Entry point upon reboot */

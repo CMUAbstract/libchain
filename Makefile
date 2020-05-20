@@ -14,3 +14,5 @@ override CFLAGS += \
 ifeq ($(LIBCHAIN_ENABLE_DIAGNOSTICS),1)
 override CFLAGS += -DLIBCHAIN_ENABLE_DIAGNOSTICS
 endif
+
+include $(MAKER_ROOT)/Makefile.$(TOOLCHAIN)

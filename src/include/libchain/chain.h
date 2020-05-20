@@ -131,7 +131,8 @@ typedef struct _context_t {
 extern context_t * volatile curctx;
 
 /** @brief Internal macro for constructing name of task symbol */
-#define TASK_SYM_NAME(func) _task_ ## func
+#define TASK_SYM_NAME(func) nudgetask_ ## func
+//#define TASK_SYM_NAME(func) task_ ## func
 
 /** @brief Declare a task
  *
@@ -202,10 +203,11 @@ void _init();
 #define INIT_FUNC(func) void _init() { func(); }
 
 void task_prologue();
-void transition_to(task_t *task);
+void libchain_transition_to(task_t *task);
+void transition_to(void *);
 void *chan_in(const char *field_name, size_t var_size, int count, ...);
 void chan_out(const char *field_name, const void *value,
-              size_t var_size, int count, ...);
+              size_t var_size, int count, uint8_t *chan_ptr, unsigned offset);
 
 #define FIELD_COUNT_INNER(type) NUM_FIELDS_ ## type
 #define FIELD_COUNT(type) FIELD_COUNT_INNER(type)
@@ -328,12 +330,13 @@ void chan_out(const char *field_name, const void *value,
  */
 // #define CHAN_IN1(field, chan0) (&(chan0->data.field.value))
 #define CHAN_IN1(type, field, chan0) \
-    ((type*)((unsigned char *)chan_in(#field, sizeof(VAR_TYPE(type)), 1, \
+    ((type*)((unsigned char *)chan_in1(#field, sizeof(VAR_TYPE(type)), 1, \
           chan0, offsetof(__typeof__(chan0->data), field))))
 #define CHAN_IN2(type, field, chan0, chan1) \
-    ((type*)((unsigned char *)chan_in(#field, sizeof(VAR_TYPE(type)), 2, \
+    ((type*)((unsigned char *)chan_in2(#field, sizeof(VAR_TYPE(type)), 2, \
           chan0, offsetof(__typeof__(chan0->data), field), \
           chan1, offsetof(__typeof__(chan1->data), field))))
+#if 0
 #define CHAN_IN3(type, field, chan0, chan1, chan2) \
     ((type*)((unsigned char *)chan_in(#field, sizeof(VAR_TYPE(type)), 3, \
           chan0, offsetof(__typeof__(chan0->data), field), \
@@ -352,6 +355,7 @@ void chan_out(const char *field_name, const void *value,
           chan2, offsetof(__typeof__(chan2->data), field), \
           chan3, offsetof(__typeof__(chan3->data), field), \
           chan4, offsetof(__typeof__(chan4->data), field))))
+#endif
 
 /** @brief Write a value into a channel
  *  @details Note: the list of arguments here is a list of
@@ -361,6 +365,7 @@ void chan_out(const char *field_name, const void *value,
 #define CHAN_OUT1(type, field, val, chan0) \
     chan_out(#field, &val, sizeof(VAR_TYPE(type)), 1, \
              chan0, offsetof(__typeof__(chan0->data), field))
+#if 0
 #define CHAN_OUT2(type, field, val, chan0, chan1) \
     chan_out(#field, &val, sizeof(VAR_TYPE(type)), 2, \
              chan0, offsetof(__typeof__(chan0->data), field), \
@@ -383,10 +388,12 @@ void chan_out(const char *field_name, const void *value,
              chan2, offsetof(__typeof__(chan2->data), field), \
              chan3, offsetof(__typeof__(chan3->data), field), \
              chan4, offsetof(__typeof__(chan4->data), field))
+#endif
 
 /** @brief Transfer control to the given task
  *  @param task     Name of the task function
  *  */
-#define TRANSITION_TO(task) transition_to(TASK_REF(task))
+#define TRANSITION_TO(task) transition_to(&task);\
+            libchain_transition_to(TASK_REF(task))
 
 #endif // CHAIN_H
