@@ -116,6 +116,9 @@ typedef struct {
 #define SELF_CHAN_FIELD(type, name)             SELF_FIELD_TYPE(type) name
 #define SELF_CHAN_FIELD_ARRAY(type, name, size) SELF_FIELD_TYPE(type) name[size]
 
+
+#define NUM_LIBCHAIN_TYPESTATES 3
+
 /** @brief Execution context */
 typedef struct _context_t {
     /** @brief Pointer to the most recently started but not finished task */
@@ -123,12 +126,25 @@ typedef struct _context_t {
 
     /** @brief Logical time, ticks at task boundaries */
     chain_time_t time;
+ 
+    /** @brief buffer of peripheral typestates */
+    int buf[NUM_LIBCHAIN_TYPESTATES]; 
 
     // TODO: move this to top, just feels cleaner
     struct _context_t *next_ctx;
 } context_t;
 
 extern context_t * volatile curctx;
+
+extern unsigned *libchain_typestate_addrs[NUM_LIBCHAIN_TYPESTATES];
+/** @brief macro for setting the typestate memory addresses that we're going to
+ * watch*/
+#define TYPESTATE_BUFFER_SET \
+  __nv unsigned *libchain_typestate_addrs[NUM_LIBCHAIN_TYPESTATES]
+
+#define TYPESTATE_BUFFER \
+  libchain_typestate_addrs
+
 
 /** @brief Internal macro for constructing name of task symbol */
 #define TASK_SYM_NAME(func) nudgetask_ ## func
@@ -159,7 +175,8 @@ extern context_t * volatile curctx;
  *  @details This function usually initializes hardware, such as GPIO
  *           direction. The application must define this function.
  */
-extern void init();
+extern void _init1();
+extern void _init2();
 
 /** @brief First task to run when the application starts
  *  @details Symbol is defined by the ENTRY_TASK macro.
@@ -190,17 +207,22 @@ extern task_t TASK_SYM_NAME(_entry_task);
     TASK(0, _entry_task) \
     void _entry_task() { TRANSITION_TO(task); }
 
-/** @brief Init function prototype
+/** @brief Init function prototypes
  *  @details We rely on the special name of this symbol to initialize the
  *           current task pointer. The entry function is defined in the user
  *           application through a macro provided by our header.
+ *           _init1 is the initialization that we run before anything else
+ *           _init2 is run after we re-initialize any peripheral typestate
+ *           information
  */
-void _init();
+void _init1();
+void _init2();
 
 /** @brief Declare the function to be called on each boot
  *  @details The same notes apply as for entry task.
  */
-#define INIT_FUNC(func) void _init() { func(); }
+#define PRE_INIT_FUNC(func) void _init1() { func(); }
+#define INIT_FUNC(func) void _init2() {func(); }
 
 void task_prologue();
 void libchain_transition_to(task_t *task);

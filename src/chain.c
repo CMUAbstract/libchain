@@ -141,6 +141,9 @@ void libchain_transition_to(task_t *next_task)
     next_ctx = curctx->next_ctx;
     next_ctx->task = next_task;
     next_ctx->time = curctx->time + 1;
+    for (int i = 0; i < NUM_LIBCHAIN_TYPESTATES; i++) {
+      next_ctx->buf[i] = *(libchain_typestate_addrs[i]);
+    }
 
     next_ctx->next_ctx = curctx;
     curctx = next_ctx;
@@ -173,7 +176,6 @@ void libchain_transition_to(task_t *next_task)
 void *chan_in1(const char *field_name, size_t var_size, int count, 
   uint8_t *chan, size_t field_offset)
 {
-    unsigned i;
     unsigned latest_update = 0;
 #ifdef LIBCHAIN_ENABLE_DIAGNOSTICS
     unsigned latest_chan_idx = 0;
@@ -419,10 +421,16 @@ void chan_out(const char *field_name, const void *value, size_t var_size,
 
 /** @brief Entry point upon reboot */
 int main() {
-    _init();
-
+    _init1();
+    //After the initial "get-us-off-the-ground" boot steps, copy in the
+    //typestate values from the last context so we can run the typestate
+    //specific boot
+    for (int i = 0; i < NUM_LIBCHAIN_TYPESTATES; i++) {
+      *(libchain_typestate_addrs[i]) = curctx->buf[i];
+    }
+    // Run boot that will process typestates
+    _init2();
     _numBoots++;
-
     // Resume execution at the last task that started but did not finish
 
     // TODO: using the raw transtion would be possible once the
