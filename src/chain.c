@@ -25,6 +25,7 @@ __nv context_t context_0 = {
     .task = TASK_REF(_entry_task),
     .time = 0,
     .next_ctx = &context_1,
+    .buf = {0}
 };
 
 __nv context_t * volatile curctx = &context_0;
@@ -81,8 +82,8 @@ void task_prologue()
 }
 
 volatile int transition_cheat;
-void transition_to(void *loc){
-  if (loc > 10) {
+void transition_to(task_t *next_task){
+  if (next_task->last_execute_time > 10) {
     transition_cheat = 1;
   }
   else {

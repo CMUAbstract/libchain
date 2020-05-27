@@ -147,7 +147,7 @@ extern unsigned *libchain_typestate_addrs[NUM_LIBCHAIN_TYPESTATES];
 
 
 /** @brief Internal macro for constructing name of task symbol */
-#define TASK_SYM_NAME(func) nudgetask_ ## func
+#define TASK_SYM_NAME(func) _task_ ## func
 //#define TASK_SYM_NAME(func) task_ ## func
 
 /** @brief Declare a task
@@ -226,10 +226,10 @@ void _init2();
 
 void task_prologue();
 void libchain_transition_to(task_t *task);
-void transition_to(void *);
+void transition_to(task_t *task);
 void *chan_in(const char *field_name, size_t var_size, int count, ...);
 void chan_out(const char *field_name, const void *value,
-              size_t var_size, int count, uint8_t *chan_ptr, unsigned offset);
+              size_t var_size, int count, uint8_t *chan_ptr, size_t offset);
 
 #define FIELD_COUNT_INNER(type) NUM_FIELDS_ ## type
 #define FIELD_COUNT(type) FIELD_COUNT_INNER(type)
@@ -415,7 +415,8 @@ void chan_out(const char *field_name, const void *value,
 /** @brief Transfer control to the given task
  *  @param task     Name of the task function
  *  */
-#define TRANSITION_TO(task) transition_to(&task);\
-            libchain_transition_to(TASK_REF(task))
+#define TRANSITION_TO(task) do {volatile int *mine; mine = &task; \
+            transition_to(TASK_REF(task));\
+            libchain_transition_to(TASK_REF(task));} while(0);
 
 #endif // CHAIN_H
